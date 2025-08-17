@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 
 export default function AuthPage() {
+  // ▶️ Domyślnie LOGOWANIE
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +21,6 @@ export default function AuthPage() {
 
     try {
       if (mode === "register") {
-        // 👉 WALIDACJA ZANIM uderzymy do API
         if (password !== confirmPassword) {
           setMessage("❌ Hasła nie są takie same");
           return;
@@ -29,39 +31,42 @@ export default function AuthPage() {
         }
 
         setLoading(true);
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.from("users").insert([
+          {
+            email,
+            password,           // PRODUKCJA: hashuj!
+            status: "unpaid",   // <-- to dodaj
+          },
+        ]);
         setLoading(false);
 
         if (error) {
-          console.error("SIGNUP ERROR:", error);
-          setMessage(
-            `Błąd rejestracji (${error.status ?? "-"}/${
-              error.code ?? "-"
-            }): ${error.message}`
-          );
+          setMessage("Błąd rejestracji: " + error.message);
           return;
         }
 
-        setMessage("🎉 Rejestracja udana! Sprawdź maila i potwierdź konto.");
+        setMessage("✅ Zarejestrowano. Teraz zaloguj się.");
         setPassword("");
         setConfirmPassword("");
-        // (email zostawiamy w polu – wygodniej dla użytkownika)
+        setMode("login"); // po rejestracji przełączamy na logowanie
       } else {
+        // LOGIN
         setLoading(true);
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
         });
         setLoading(false);
 
-        if (error) {
-          console.error("LOGIN ERROR:", error);
-          setMessage("Błąd logowania: " + error.message);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setMessage("Błąd logowania: " + (data?.error ?? res.statusText));
           return;
         }
 
         setMessage("✅ Zalogowano pomyślnie");
-        // ewentualnie redirect do /dashboard
+        router.replace("/"); // główna pokaże Userpage
       }
     } catch (err) {
       console.error(err);
@@ -111,17 +116,9 @@ export default function AuthPage() {
             disabled={loading}
             className="w-full bg-rose-500 hover:bg-rose-400 disabled:opacity-60 rounded-lg py-2 font-semibold"
           >
-            {loading
-              ? "Przetwarzanie..."
-              : mode === "login"
-              ? "Zaloguj się"
-              : "Zarejestruj się"}
+            {loading ? "Przetwarzanie..." : mode === "login" ? "Zaloguj się" : "Zarejestruj się"}
           </button>
         </form>
-
-        {message && (
-          <p className="mt-4 text-center text-sm text-white/80">{message}</p>
-        )}
 
         <p className="mt-6 text-center text-sm text-white/60">
           {mode === "login" ? (
@@ -148,6 +145,10 @@ export default function AuthPage() {
             </>
           )}
         </p>
+
+        {message && (
+          <p className="mt-4 text-center text-sm text-white/80">{message}</p>
+        )}
       </div>
     </div>
   );

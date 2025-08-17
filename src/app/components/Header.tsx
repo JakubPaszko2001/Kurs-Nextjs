@@ -42,7 +42,7 @@ const Header = () => {
 
         {/* Przyciski akcji */}
         <div className="flex items-center gap-3">
-          {/* Zaloguj się */}
+          {/* Zarejestruj się */}
           <a
             href="/login"
             className="inline-flex items-center gap-2 rounded-2xl border border-rose-400 text-rose-400 hover:bg-rose-400 hover:text-white active:bg-rose-600 px-4 py-2 text-sm font-semibold transition-colors"
