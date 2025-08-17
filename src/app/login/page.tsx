@@ -1,42 +1,72 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (mode === "register" && password !== confirmPassword) {
-      alert("Hasła się nie zgadzają!");
-      return;
-    }
+    if (loading) return;
+    setMessage("");
 
     try {
-      const endpoint = mode === "login" ? "/api/login" : "/api/register";
+      if (mode === "register") {
+        // 👉 WALIDACJA ZANIM uderzymy do API
+        if (password !== confirmPassword) {
+          setMessage("❌ Hasła nie są takie same");
+          return;
+        }
+        if (password.length < 6) {
+          setMessage("❌ Hasło musi mieć co najmniej 6 znaków");
+          return;
+        }
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+        setLoading(true);
+        const { error } = await supabase.auth.signUp({ email, password });
+        setLoading(false);
 
-      const data = await response.json();
-      if (!response.ok) {
-        alert(data.error || "Błąd");
-        return;
+        if (error) {
+          console.error("SIGNUP ERROR:", error);
+          setMessage(
+            `Błąd rejestracji (${error.status ?? "-"}/${
+              error.code ?? "-"
+            }): ${error.message}`
+          );
+          return;
+        }
+
+        setMessage("🎉 Rejestracja udana! Sprawdź maila i potwierdź konto.");
+        setPassword("");
+        setConfirmPassword("");
+        // (email zostawiamy w polu – wygodniej dla użytkownika)
+      } else {
+        setLoading(true);
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        setLoading(false);
+
+        if (error) {
+          console.error("LOGIN ERROR:", error);
+          setMessage("Błąd logowania: " + error.message);
+          return;
+        }
+
+        setMessage("✅ Zalogowano pomyślnie");
+        // ewentualnie redirect do /dashboard
       }
-
-      alert(mode === "login" ? "Zalogowano!" : "Rejestracja udana!");
-      // np. zapisz token w localStorage
-      if (data.token) localStorage.setItem("token", data.token);
     } catch (err) {
-      console.error("Auth error:", err);
-      alert("Wystąpił błąd.");
+      console.error(err);
+      setLoading(false);
+      setMessage("Wystąpił nieoczekiwany błąd.");
     }
   };
 
@@ -47,49 +77,51 @@ export default function AuthPage() {
           {mode === "login" ? "Zaloguj się" : "Zarejestruj się"}
         </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm mb-1">Hasło</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
-            />
-          </div>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Hasło"
+            className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
           {mode === "register" && (
-            <div>
-              <label className="block text-sm mb-1">Powtórz hasło</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
-              />
-            </div>
+            <input
+              type="password"
+              placeholder="Powtórz hasło"
+              className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           )}
 
           <button
             type="submit"
-            className="w-full bg-rose-500 hover:bg-rose-400 rounded-lg py-2 font-semibold"
+            disabled={loading}
+            className="w-full bg-rose-500 hover:bg-rose-400 disabled:opacity-60 rounded-lg py-2 font-semibold"
           >
-            {mode === "login" ? "Zaloguj się" : "Zarejestruj się"}
+            {loading
+              ? "Przetwarzanie..."
+              : mode === "login"
+              ? "Zaloguj się"
+              : "Zarejestruj się"}
           </button>
         </form>
+
+        {message && (
+          <p className="mt-4 text-center text-sm text-white/80">{message}</p>
+        )}
 
         <p className="mt-6 text-center text-sm text-white/60">
           {mode === "login" ? (
