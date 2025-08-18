@@ -1,10 +1,9 @@
-// src/app/api/stripe/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
+  apiVersion: "2025-07-30.basil",
 });
 
 const supabaseAdmin = createClient(
@@ -12,7 +11,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ważne: używamy surowego body (req.text())
 export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature");
   if (!sig) return NextResponse.json({ error: "Missing signature" }, { status: 400 });
@@ -24,18 +22,18 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(
       raw,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET! // <- wklej tu sekret z `stripe listen`
+      process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (err: any) {
-    console.error("[webhook] constructEvent error:", err.message);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[webhook] constructEvent error:", msg);
+    return NextResponse.json({ error: `Webhook Error: ${msg}` }, { status: 400 });
   }
 
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      // e-mail preferencyjnie z metadata, potem z customer_details
       const email =
         (session.metadata && (session.metadata["user_email"] as string)) ||
         session.customer_details?.email ||
@@ -57,10 +55,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // (opcjonalnie) obsługa innych eventów
     return NextResponse.json({ received: true });
-  } catch (e) {
-    console.error("[webhook] handler error:", e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[webhook] handler error:", msg);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

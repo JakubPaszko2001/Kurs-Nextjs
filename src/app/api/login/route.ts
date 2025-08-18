@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
-import { supabaseAdmin } from "../../lib/supabaseAdmin"; // <— WAŻNE: ścieżka względna
+import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (error) return fail("DB: " + error.message);
-    if (!user || user.password !== password) { // produkcyjnie: bcrypt.compare
+    if (!user || user.password !== password) {
       return fail("Nieprawidłowy email/hasło", 401);
     }
 
@@ -45,8 +45,9 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24 * 7,
     });
     return res;
-  } catch (e: any) {
-    console.error("[/api/login] UNEXPECTED:", e);
-    return fail(e?.message || "Internal Server Error");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[/api/login] UNEXPECTED:", msg);
+    return fail(msg || "Internal Server Error");
   }
 }
