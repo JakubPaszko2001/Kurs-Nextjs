@@ -1,3 +1,4 @@
+// src/app/page.tsx
 import Header from "./components/Header";
 import Hero from "./components/Hero";
 import HowItWorks from "./components/HowItWorks";
@@ -8,34 +9,31 @@ import FAQ from "./components/FAQ";
 import FinalCTA from "./components/FinalCTA";
 import Footer from "./components/Footer";
 
-import Userpage from "./components/Userpage"; // <- jeśli to komponent w app/, inaczej popraw ścieżkę
-
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
-async function isLoggedIn() {
+async function getAuth() {
   const token = (await cookies()).get("session")?.value;
-  if (!token) return false;
+  if (!token) return { loggedIn: false, email: null as string | null };
+
   try {
-    await jwtVerify(token, new TextEncoder().encode(process.env.JWT_SECRET!));
-    return true;
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(process.env.JWT_SECRET!)
+    );
+    return { loggedIn: true, email: (payload as any)?.email ?? null };
   } catch {
-    return false;
+    return { loggedIn: false, email: null };
   }
 }
 
 export default async function Page() {
-  const loggedIn = await isLoggedIn();
+  const { loggedIn, email } = await getAuth();
 
-  if (loggedIn) {
-    // >>> Użytkownik zalogowany: strona główna = Userpage
-    return <Userpage />;
-  }
-
-  // >>> Niezalogowany: landing jak do tej pory
   return (
     <div className="bg-[#0f1222] text-white antialiased">
-      <Header />
+      {/* przekaż informację o zalogowaniu do Headera, aby zmienić przycisk */}
+      <Header loggedIn={loggedIn} userEmail={email ?? undefined} />
       <main>
         <Hero />
         <HowItWorks />

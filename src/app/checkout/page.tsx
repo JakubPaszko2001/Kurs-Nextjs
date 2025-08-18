@@ -2,29 +2,30 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type Props = { userEmail: string };
 
-const ORIGINAL = 20000; // 200,00 zł w groszach
-const PRICE = 14900;    // 149,00 zł w groszach
+const ORIGINAL = 20000; // 200,00 zł
+const PRICE = 14900;    // 149,00 zł
 const formatPLN = (v: number) =>
   (v / 100).toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
 
 export default function CheckoutClient({ userEmail }: Props) {
+  const router = useRouter();
+
   const [qty, setQty] = useState(1);
   const [shipping, setShipping] = useState<"standard" | "express">("standard");
   const [coupon, setCoupon] = useState("");
   const [processing, setProcessing] = useState(false);
 
-  const shippingCost = shipping === "standard" ? 0 : 1900; // 0 zł / 19,00 zł
+  const shippingCost = shipping === "standard" ? 0 : 1900;
 
-  // Kwoty
   const catalogSubtotal = ORIGINAL * qty;
-  const subtotal = PRICE * qty; // cena po przecenie (149 zł * ilość)
-  const baseDiscountPerItem = ORIGINAL - PRICE; // 51 zł
+  const subtotal = PRICE * qty;
+  const baseDiscountPerItem = ORIGINAL - PRICE;
   const baseDiscountTotal = baseDiscountPerItem * qty;
 
-  // Kupon (np. KODRABATOWY = -10% od ceny po przecenie)
   const discount = useMemo(() => {
     if (coupon.trim().toUpperCase() === "KODRABATOWY") {
       return Math.round(subtotal * 0.1);
@@ -33,37 +34,45 @@ export default function CheckoutClient({ userEmail }: Props) {
   }, [coupon, subtotal]);
 
   const total = Math.max(0, subtotal - discount) + shippingCost;
+  const baseDiscountPct = ((baseDiscountPerItem / ORIGINAL) * 100).toFixed(1);
 
-  const baseDiscountPct = ((baseDiscountPerItem / ORIGINAL) * 100).toFixed(1); // 25.5%
-
+  // ⬇️ od razu tworzymy sesję Stripe i przekierowujemy na bramkę
   const handlePay = async () => {
     try {
       setProcessing(true);
+
       const res = await fetch("/api/pay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: userEmail,
+          email: userEmail ?? "",
           qty,
-          subtotal,           // cena po przecenie (bez kuponu i dostawy)
-          discount,           // kupon
+          coupon: coupon.trim(),
+          subtotal,             // 149 zł * ilość (w groszach)
+          discount,             // rabat z kuponu (w groszach)
           shipping: shippingCost,
-          total,              // finalnie do zapłaty
+          total,                // suma końcowa (w groszach)
           product_id: "plan-premium",
           product_name: "Pełen Dostęp do Przewodnika",
         }),
       });
 
-      if (res.ok) {
+      if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (data?.url) {
-          window.location.href = data.url; // bramka płatności
-        } else {
-          window.location.href = "/userpage"; // fallback
-        }
-      } else {
-        alert("Nie udało się rozpocząć płatności. Spróbuj ponownie.");
+        alert("Nie udało się rozpocząć płatności. " + (data?.error ?? ""));
+        return;
       }
+
+      const data = await res.json().catch(() => ({}));
+      if (data?.url) {
+        // URL Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        alert("Brak URL do płatności z serwera.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Wystąpił błąd podczas uruchamiania płatności.");
     } finally {
       setProcessing(false);
     }
@@ -77,9 +86,6 @@ export default function CheckoutClient({ userEmail }: Props) {
           <Link href="/" className="text-white/70 hover:text-white">
             ← Wróć na stronę główną
           </Link>
-          <div className="text-white/60 text-sm">
-            Zalogowano jako <span className="text-white">{userEmail}</span>
-          </div>
         </div>
       </div>
 

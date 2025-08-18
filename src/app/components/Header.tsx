@@ -3,7 +3,26 @@
 import React from "react";
 import Link from "next/link";
 
-const Header = () => {
+type HeaderProps = {
+  loggedIn?: boolean;
+  userEmail?: string;
+};
+
+const Header: React.FC<HeaderProps> = ({ loggedIn, userEmail }) => {
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setSigningOut(true);
+      // jeśli masz endpoint /api/logout, to wyczyści cookie 'session'
+      await fetch("/api/logout", { method: "POST" }).catch(() => {});
+      // odśwież stronę / przejdź na główną
+      window.location.href = "/";
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 backdrop-blur bg-[#0f1222]/70 border-b border-white/10">
       <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between">
@@ -43,13 +62,35 @@ const Header = () => {
 
         {/* Przyciski akcji */}
         <div className="flex items-center gap-3">
-          {/* Zaloguj się */}
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 rounded-2xl border border-rose-400 text-rose-400 hover:bg-rose-400 hover:text-white active:bg-rose-600 px-4 py-2 text-sm font-semibold transition-colors"
-          >
-            Zaloguj się
-          </Link>
+          {loggedIn ? (
+            <>
+              {/* Moje konto */}
+              <Link
+                href="/userpage"
+                title={userEmail || undefined}
+                className="inline-flex items-center gap-2 rounded-2xl border border-rose-400 text-rose-400 hover:bg-rose-400 hover:text-white active:bg-rose-600 px-4 py-2 text-sm font-semibold transition-colors"
+              >
+                Moje konto
+              </Link>
+
+              {/* Wyloguj */}
+              <button
+                onClick={handleLogout}
+                disabled={signingOut}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 text-white/80 hover:bg-white/10 active:bg-white/15 px-4 py-2 text-sm font-semibold transition-colors"
+              >
+                {signingOut ? "Wylogowywanie..." : "Wyloguj się"}
+              </button>
+            </>
+          ) : (
+            // Zaloguj się
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 rounded-2xl border border-rose-400 text-rose-400 hover:bg-rose-400 hover:text-white active:bg-rose-600 px-4 py-2 text-sm font-semibold transition-colors"
+            >
+              Zaloguj się
+            </Link>
+          )}
 
           {/* Kup teraz → checkout */}
           <Link
