@@ -2,7 +2,8 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { redirect } from "next/navigation";
-import { supabaseAdmin } from "../lib/supabaseAdmin"; // <- popraw ścieżkę, jeśli inna
+import Link from "next/link";
+import { supabaseAdmin } from "../lib/supabaseAdmin"; // popraw ścieżkę jeśli u Ciebie inna
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,6 @@ async function getAuth() {
 export default async function Userpage() {
   const auth = await getAuth();
   if (!auth) {
-    // brak sesji -> logowanie
     redirect("/login");
   }
 
@@ -40,6 +40,16 @@ export default async function Userpage() {
   if (error) {
     return (
       <div className="min-h-screen bg-[#0f1222] text-white">
+        {/* pasek z cofnięciem */}
+        <div className="border-b border-white/10">
+          <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+            <Link href="/" className="text-white/70 hover:text-white">← Wróć na stronę główną</Link>
+            <div className="text-white/60 text-sm">
+              Zalogowano jako <span className="text-white">{auth.email}</span>
+            </div>
+          </div>
+        </div>
+
         <div className="mx-auto max-w-3xl px-4 py-10">
           <h1 className="text-2xl font-bold">Twoje konto</h1>
           <p className="mt-2 text-rose-300">
@@ -54,9 +64,18 @@ export default async function Userpage() {
 
   return (
     <div className="min-h-screen bg-[#0f1222] text-white">
+      {/* pasek z cofnięciem */}
+      <div className="border-b border-white/10">
+        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+          <Link href="/" className="text-white/70 hover:text-white">← Wróć na stronę główną</Link>
+          <div className="text-white/60 text-sm">
+            Zalogowano jako <span className="text-white">{auth.email}</span>
+          </div>
+        </div>
+      </div>
+
       <div className="mx-auto max-w-5xl px-4 py-10">
         <h1 className="text-3xl font-bold">Twoje produkty</h1>
-        <p className="text-white/60 mt-1">Zalogowano jako {auth.email}</p>
 
         {!isPaid ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-[#1a1d2e] p-6">
@@ -97,8 +116,7 @@ export default async function Userpage() {
                 </li>
               </ul>
             </div>
-
-            {/* Możesz dodać tu bonusy, pliki do pobrania itd. */}
+            {/* Bonusy / pliki do pobrania itp. */}
           </div>
         )}
       </div>
