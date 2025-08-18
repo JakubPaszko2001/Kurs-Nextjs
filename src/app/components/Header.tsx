@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 const Header = () => {
   return (
@@ -42,21 +43,21 @@ const Header = () => {
 
         {/* Przyciski akcji */}
         <div className="flex items-center gap-3">
-          {/* Zarejestruj się */}
-          <a
+          {/* Zaloguj się */}
+          <Link
             href="/login"
             className="inline-flex items-center gap-2 rounded-2xl border border-rose-400 text-rose-400 hover:bg-rose-400 hover:text-white active:bg-rose-600 px-4 py-2 text-sm font-semibold transition-colors"
           >
             Zaloguj się
-          </a>
+          </Link>
 
-          {/* Kup teraz */}
-          <a
-            href="#kup-teraz"
+          {/* Kup teraz → checkout */}
+          <Link
+            href="/checkout"
             className="inline-flex items-center gap-2 rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 px-4 py-2 text-sm font-semibold shadow-lg shadow-rose-500/20 transition-colors"
           >
             Kup teraz – Otwórz dostęp
-          </a>
+          </Link>
         </div>
       </div>
     </header>

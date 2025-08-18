@@ -1,9 +1,9 @@
-"use client"; // 👈 bardzo ważne
+"use client";
 
 import React from "react";
+import Link from "next/link";
 
-
-const Purchase = () => {
+const Purchase: React.FC = () => {
   return (
     <section id="kup-teraz" className="py-16 md:py-24 border-t border-white/10">
       <div className="mx-auto max-w-7xl px-4">
@@ -22,22 +22,26 @@ const Purchase = () => {
             <p className="mt-1 text-white/70">
               Wszystko, czego potrzebujesz, w jednym miejscu.
             </p>
+
             <div className="mt-4 text-4xl font-extrabold">149 zł</div>
             <p className="text-sm text-white/60">
               Jednorazowa opłata, dostęp na zawsze.
             </p>
+
             <ul className="mt-6 space-y-2 text-sm text-white/80">
               <li>✓ Dostęp do wszystkich materiałów</li>
               <li>✓ Plan krok po kroku</li>
               <li>✓ Scenariusze rozmów i działań</li>
               <li>✓ Dyskrecja i prywatność</li>
             </ul>
-            <button
-              className="mt-8 rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 font-bold py-3 shine transition-all"
-              onClick={() => console.log("Kupuję i otwieram dostęp")}
+
+            {/* Przejście do podstrony sprzedaży */}
+            <Link
+              href="/checkout"
+              className="mt-8 block w-full text-center rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 font-bold py-3 shine transition-all"
             >
               Kupuję i otwieram dostęp
-            </button>
+            </Link>
           </div>
         </div>
 
