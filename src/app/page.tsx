@@ -28,7 +28,6 @@ async function getAuth(): Promise<AuthInfo> {
       new TextEncoder().encode(process.env.JWT_SECRET!)
     );
 
-    // bez `any`: wyciągamy email w bezpieczny sposób
     const p = payload as Record<string, unknown>;
     const email = typeof p.email === "string" ? p.email : null;
 
