@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-07-30.basil",
-});
+export const dynamic = "force-dynamic"; // nie próbuj niczego prerendrować
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,15 +15,21 @@ export async function POST(req: NextRequest) {
 
   const raw = await req.text();
 
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripeKey || !webhookSecret) {
+    console.error("Missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  // ⬇️ Inicjalizacja TUTAJ, wewnątrz handlera
+  const stripe = new Stripe(stripeKey, { apiVersion: "2025-07-30.basil" });
+
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
-      raw,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
+    event = stripe.webhooks.constructEvent(raw, sig, webhookSecret);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "unknown";
     console.error("[webhook] constructEvent error:", msg);
     return NextResponse.json({ error: `Webhook Error: ${msg}` }, { status: 400 });
   }
@@ -45,20 +49,16 @@ export async function POST(req: NextRequest) {
           .update({ status: "paid" })
           .eq("email", email);
 
-        if (error) {
-          console.error("[webhook] supabase update error:", error);
-        } else {
-          console.log("[webhook] status=paid set for", email);
-        }
+        if (error) console.error("[webhook] supabase update error:", error);
+        else console.log("[webhook] status=paid set for", email);
       } else {
         console.warn("[webhook] no email on session");
       }
     }
 
     return NextResponse.json({ received: true });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[webhook] handler error:", msg);
+  } catch (e) {
+    console.error("[webhook] handler error:", e);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
