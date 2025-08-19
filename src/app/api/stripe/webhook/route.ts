@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic"; // nie próbuj niczego prerendrować
+export const runtime = "nodejs";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,3 +63,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
+
+
