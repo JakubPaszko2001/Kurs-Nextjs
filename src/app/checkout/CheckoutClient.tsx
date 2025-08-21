@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { supabase } from "../lib/supabaseClient"; // ← DOPASUJ ŚCIEŻKĘ!
 
-type Props = { userEmail: string };
+type Props = { userEmail?: string };
 
 const ORIGINAL = 20000; // 200,00 zł
 const PRICE = 14900;    // 149,00 zł
@@ -15,6 +16,15 @@ export default function CheckoutClient({ userEmail }: Props) {
   const [shipping, setShipping] = useState<"standard" | "express">("standard");
   const [coupon, setCoupon] = useState("");
   const [processing, setProcessing] = useState(false);
+
+  // Modal auth
+  const [showAuth, setShowAuth] = useState(false);
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPass, setAuthPass] = useState("");
+  const [authPass2, setAuthPass2] = useState("");
+  const [authMsg, setAuthMsg] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
 
   const shippingCost = shipping === "standard" ? 0 : 1900;
 
@@ -34,42 +44,109 @@ export default function CheckoutClient({ userEmail }: Props) {
   const baseDiscountPct = ((baseDiscountPerItem / ORIGINAL) * 100).toFixed(1);
 
   // Tworzenie sesji Stripe + przekierowanie
+  async function createCheckoutSession(emailToUse: string) {
+    const res = await fetch("/api/pay", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: emailToUse ?? "",
+        qty,
+        coupon: coupon.trim(),
+        subtotal,            // w groszach
+        discount,            // w groszach
+        shipping: shippingCost,
+        total,               // w groszach
+        product_id: "plan-premium",
+        product_name: "Pełen Dostęp do Przewodnika",
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error ?? "Nie udało się rozpocząć płatności.");
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!data?.url) throw new Error("Brak URL do płatności z serwera.");
+    window.location.href = data.url; // Stripe Checkout
+  }
+
+  // Kliknięcie „Przejdź do płatności”
   const handlePay = async () => {
+    if (!userEmail) {
+      setShowAuth(true);
+      return;
+    }
     try {
       setProcessing(true);
+      await createCheckoutSession(userEmail);
+    } catch (e: any) {
+      alert(e?.message ?? "Błąd płatności.");
+    } finally {
+      setProcessing(false);
+    }
+  };
 
-      const res = await fetch("/api/pay", {
+  // Obsługa logowania/rejestracji w modalu
+  const submitAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authLoading) return;
+    setAuthMsg("");
+
+    try {
+      setAuthLoading(true);
+
+      if (mode === "register") {
+        if (authPass.length < 6) {
+          setAuthMsg("❌ Hasło musi mieć co najmniej 6 znaków");
+          setAuthLoading(false);
+          return;
+        }
+        if (authPass !== authPass2) {
+          setAuthMsg("❌ Hasła nie są takie same");
+          setAuthLoading(false);
+          return;
+        }
+
+        // Zapis do public.users (status: unpaid)
+        const { error } = await supabase.from("users").insert([
+          { email: authEmail.trim(), password: authPass, status: "unpaid" },
+        ]);
+        if (error) {
+          setAuthMsg("Błąd rejestracji: " + error.message);
+          setAuthLoading(false);
+          return;
+        }
+        setMode("login");
+        setAuthMsg("✅ Zarejestrowano. Zaloguj się teraz.");
+        setAuthPass("");
+        setAuthPass2("");
+        setAuthLoading(false);
+        return;
+      }
+
+      // LOGIN → /api/login (ustawia cookie sesji)
+      const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: userEmail ?? "",
-          qty,
-          coupon: coupon.trim(),
-          subtotal,            // w groszach
-          discount,            // w groszach
-          shipping: shippingCost,
-          total,               // w groszach
-          product_id: "plan-premium",
-          product_name: "Pełen Dostęp do Przewodnika",
-        }),
+        body: JSON.stringify({ email: authEmail.trim(), password: authPass }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert("Nie udało się rozpocząć płatności. " + (data?.error ?? ""));
+        setAuthMsg("Błąd logowania: " + (data?.error ?? res.statusText));
+        setAuthLoading(false);
         return;
       }
 
-      const data = await res.json().catch(() => ({}));
-      if (data?.url) {
-        window.location.href = data.url; // Stripe Checkout
-      } else {
-        alert("Brak URL do płatności z serwera.");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Wystąpił błąd podczas uruchamiania płatności.");
-    } finally {
+      // zalogowano — zamknij modal i od razu odpal Stripe z tym e-mailem
+      setShowAuth(false);
+      setAuthLoading(false);
+      setProcessing(true);
+      await createCheckoutSession(authEmail.trim());
+    } catch (err: any) {
+      setAuthMsg(err?.message ?? "Wystąpił błąd.");
+      setAuthLoading(false);
       setProcessing(false);
     }
   };
@@ -246,6 +323,106 @@ export default function CheckoutClient({ userEmail }: Props) {
           </div>
         </div>
       </div>
+
+      {/* MODAL AUTH */}
+      {showAuth && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => { if (!authLoading) setShowAuth(false); }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1d2e] p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">
+                {mode === "login" ? "Zaloguj się" : "Załóż konto"}
+              </h2>
+              <button
+                className="text-white/60 hover:text-white"
+                onClick={() => { if (!authLoading) setShowAuth(false); }}
+                aria-label="Zamknij"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form className="mt-4 space-y-3" onSubmit={submitAuth}>
+              <input
+                type="email"
+                placeholder="E-mail"
+                className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                required
+              />
+              <input
+                type="password"
+                placeholder="Hasło"
+                className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
+                value={authPass}
+                onChange={(e) => setAuthPass(e.target.value)}
+                required
+              />
+
+              {mode === "register" && (
+                <input
+                  type="password"
+                  placeholder="Powtórz hasło"
+                  className="w-full rounded-lg bg-[#0f1222] border border-white/20 px-3 py-2"
+                  value={authPass2}
+                  onChange={(e) => setAuthPass2(e.target.value)}
+                  required
+                />
+              )}
+
+              {authMsg && (
+                <p className="text-sm text-white/80">{authMsg}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full bg-rose-500 hover:bg-rose-400 disabled:opacity-60 rounded-lg py-2 font-semibold"
+              >
+                {authLoading
+                  ? "Przetwarzanie..."
+                  : mode === "login"
+                  ? "Zaloguj i zapłać"
+                  : "Zarejestruj"}
+              </button>
+            </form>
+
+            <p className="mt-4 text-center text-sm text-white/60">
+              {mode === "login" ? (
+                <>
+                  Nie masz konta?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("register")}
+                    className="text-rose-400 hover:text-rose-300"
+                  >
+                    Zarejestruj się
+                  </button>
+                </>
+              ) : (
+                <>
+                  Masz już konto?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="text-rose-400 hover:text-rose-300"
+                  >
+                    Zaloguj się
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
