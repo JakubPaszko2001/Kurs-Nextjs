@@ -7,13 +7,13 @@ import InpostSelect from "./InpostSelect";
 // ===== Helpers telefonu (PL) =====
 const toE164PL = (raw: string) => {
   // "500 600 700" -> "+48500600700"
+  // Zwraca "" jeśli nie ma 9 cyfr (nieprawidłowy numer).
   let d = (raw || "").replace(/\D/g, "");
   if (!d) return "";
-  if (d.startsWith("0048")) d = d.slice(2); // 0048xxxxxxxxx -> 48xxxxxxxxx
-  if (d.startsWith("48") && d.length === 11) return `+${d}`;
-  // akceptuj 9–11 cyfr, bierz ostatnie 9 jako lokalny numer
-  if (d.length >= 9) return `+48${d.slice(-9)}`;
-  return `+48${d}`; // fallback
+  if (d.startsWith("0048")) d = d.slice(4); // usuń 0048
+  if (d.startsWith("48")) d = d.slice(2);   // usuń 48
+  if (d.length !== 9) return "";
+  return `+48${d}`;
 };
 
 const formatPLGroups = (raw: string) => {
@@ -41,7 +41,7 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
   // Dane kontaktowe
   const [email, setEmail] = useState(defaultEmail || "");
   const [name, setName]   = useState("");
-  const [phone, setPhone] = useState(""); // przechowujemy "surowy" wpis, formatujemy w UI
+  const [phone, setPhone] = useState(""); // przechowujemy "surowy" wpis; do API wyślemy E.164
 
   // Dostawa
   const [shipping, setShipping] = useState<"courier" | "inpost">("courier");
@@ -77,8 +77,18 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
     e.preventDefault();
     setErr(null);
 
+    const phoneE164 = toE164PL(phone);
+
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setErr("Podaj poprawny adres e-mail.");
+      return;
+    }
+    if (!name.trim()) {
+      setErr("Podaj imię i nazwisko.");
+      return;
+    }
+    if (!phoneE164) {
+      setErr("Podaj poprawny numer telefonu (9 cyfr).");
       return;
     }
     if (shipping === "courier" && (!addressLine1 || !postalCode || !city)) {
@@ -98,7 +108,7 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
         body: JSON.stringify({
           email,
           name,
-          phone: toE164PL(phone), // ⬅ wysyłamy w E.164: +48xxxxxxxxx
+          phone: phoneE164,          // ⬅ wysyłamy w E.164: +48xxxxxxxxx
           shipping,
           courierRate,
           addressLine1,
@@ -180,18 +190,19 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
               />
             </div>
             <div>
-              <label className="text-sm text-white/70">Imię i nazwisko (opcjonalnie)</label>
+              <label className="text-sm text-white/70">Imię i nazwisko</label>
               <input
                 value={name}
                 onChange={(e)=>setName(e.target.value)}
                 placeholder="Jan Kowalski"
+                required
                 className="mt-1 w-full rounded-xl bg-[#0f1222] border border-white/10 px-3 py-2 outline-none focus:border-rose-400"
               />
             </div>
 
             {/* Telefon z automatycznym prefiksem +48 */}
             <div>
-              <label className="text-sm text-white/70">Telefon (opcjonalnie)</label>
+              <label className="text-sm text-white/70">Telefon</label>
               <div className="relative mt-1">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-white/70 select-none">
                   +48
@@ -200,19 +211,15 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
                   type="tel"
                   value={formatPLGroups(phone)}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="500 300 200"
+                  placeholder="500 600 700"
                   inputMode="numeric"
                   autoComplete="tel"
-                  pattern="[0-9 ]*"              // ← zamiast "\d*" (złe w JSX)
-                  title="Wpisz tylko cyfry (możesz użyć spacji)"
+                  pattern="[0-9 ]*"
+                  required
+                  title="Wpisz 9 cyfr (możesz użyć spacji)"
                   className="w-full rounded-xl bg-[#0f1222] border border-white/10 pl-14 pr-3 py-2 outline-none focus:border-rose-400"
                 />
               </div>
-              {!!phone && (
-                <p className="text-xs text-white/50 mt-1">
-                  Zapiszemy jako <span className="font-mono">{toE164PL(phone)}</span>
-                </p>
-              )}
             </div>
           </div>
 
@@ -264,6 +271,7 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
                       onChange={(e)=>setAddressLine1(e.target.value)}
                       placeholder="np. Bolesława Chrobrego 12, 12"
                       className="mt-1 w-full rounded-xl bg-[#0f1222] border border-white/10 px-3 py-2 outline-none focus:border-rose-400"
+                      required={shipping === "courier"}
                     />
                   </div>
                   <div>
@@ -273,6 +281,7 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
                       onChange={(e)=>setPostalCode(e.target.value)}
                       placeholder="15-057"
                       className="mt-1 w-full rounded-xl bg-[#0f1222] border border-white/10 px-3 py-2 outline-none focus:border-rose-400"
+                      required={shipping === "courier"}
                     />
                   </div>
                   <div>
@@ -282,6 +291,7 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
                       onChange={(e)=>setCity(e.target.value)}
                       placeholder="Białystok"
                       className="mt-1 w-full rounded-xl bg-[#0f1222] border border-white/10 px-3 py-2 outline-none focus:border-rose-400"
+                      required={shipping === "courier"}
                     />
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+// src/app/api/book/checkout/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { cookies } from "next/headers";
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest) {
     if (!secret) {
       return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
     }
+
+    // Użyj stabilnej wersji Stripe API
     const stripe = new Stripe(secret, { apiVersion: "2025-07-30.basil" });
     const url = baseUrl(req);
 
@@ -60,7 +63,29 @@ export async function POST(req: NextRequest) {
       lockerId,
     } = body as Record<string, any>;
 
-    // --- produkt ---
+    // ===== Walidacja wymaganych pól =====
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+      return NextResponse.json({ error: "Podaj poprawny adres e-mail." }, { status: 400 });
+    }
+    if (!name || !String(name).trim()) {
+      return NextResponse.json({ error: "Imię i nazwisko są wymagane." }, { status: 400 });
+    }
+    if (!phone || !/^\+?\d{9,15}$/.test(String(phone))) {
+      return NextResponse.json({ error: "Telefon jest wymagany." }, { status: 400 });
+    }
+    if (shipping === "courier") {
+      if (!addressLine1 || !postalCode || !city) {
+        return NextResponse.json({ error: "Uzupełnij adres dla kuriera." }, { status: 400 });
+      }
+    } else if (shipping === "inpost") {
+      if (!lockerId) {
+        return NextResponse.json({ error: "Brak wybranego paczkomatu." }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json({ error: "Nieprawidłowy typ dostawy." }, { status: 400 });
+    }
+
+    // ===== Produkt =====
     const priceId = process.env.STRIPE_BOOK_PRICE_ID || undefined;
     const amountFallback = Number(process.env.STRIPE_BOOK_AMOUNT_PLN || "9900"); // 99,00 zł
     const productName = process.env.STRIPE_BOOK_NAME || "Książka w okładce";
@@ -76,7 +101,7 @@ export async function POST(req: NextRequest) {
           },
         }];
 
-    // --- wysyłka ---
+    // ===== Wysyłka =====
     const courierStd  = Number(process.env.STRIPE_SHIP_COURIER_STANDARD_PLN ?? "0");
     const courierExp  = Number(process.env.STRIPE_SHIP_COURIER_EXPRESS_PLN ?? "1900");
     const inpostPrice = Number(process.env.STRIPE_SHIP_INPOST_PLN           ?? "1200");
@@ -90,14 +115,11 @@ export async function POST(req: NextRequest) {
 
     const metadata: Record<string, string> = {
       kind: "physical_book",
-      user_email: email || "",
+      user_email: String(email),
+      shipping_method: shipping,
     };
 
     if (shipping === "inpost") {
-      if (!lockerId) {
-        return NextResponse.json({ error: "Brak wybranego paczkomatu" }, { status: 400 });
-      }
-      metadata.shipping_method = "inpost";
       metadata.inpost_locker = String(lockerId);
       if (lockerCity) metadata.inpost_city = String(lockerCity);
 
@@ -110,7 +132,6 @@ export async function POST(req: NextRequest) {
         },
       }];
     } else {
-      metadata.shipping_method = "courier";
       shipping_address_collection = {
         allowed_countries: [
           "PL","DE","CZ","SK","AT","NL","BE","GB","FR","IE","DK","SE","NO","US",
@@ -129,61 +150,50 @@ export async function POST(req: NextRequest) {
       shipping_options = [{ shipping_rate_data: { type: "fixed_amount", ...rate } }];
     }
 
-    // --- Customer: znajdź/stwórz + PREFILL imienia i telefonu ---
+    // ===== Customer: znajdź/stwórz + prefill imienia/telefonu/adresu =====
     let customerId: string | undefined;
-    if (email || name || phone) {
-      const found = email
-        ? await stripe.customers.list({ email, limit: 1 })
-        : { data: [] as any[] };
 
-      const customer =
-        found.data[0] ??
-        (await stripe.customers.create({
-          email: email || undefined,
-          name:  name  || undefined,
-          phone: phone || undefined, // ⬅ top-level phone
-        }));
+    const found = await stripe.customers.list({ email, limit: 1 });
+    const customer =
+      found.data[0] ??
+      (await stripe.customers.create({
+        email,
+        name,
+        phone, // top-level phone (prefill górnego pola Checkout)
+      }));
 
-      customerId = customer.id;
+    customerId = customer.id;
 
-      // ⬇ uzupełnij/napraw dane top-level gdy klient już istniał
-      const toUpdate: Stripe.CustomerUpdateParams = {};
-      if (phone) toUpdate.phone = phone;
-      if (name)  toUpdate.name  = name;
-      if (Object.keys(toUpdate).length && customerId) {
-        await stripe.customers.update(customerId, toUpdate);
-      }
-
-      // ⬇ prefill sekcji adresu wysyłki (tu jest pole "Imię i nazwisko")
-      if (
-        customerId &&
-        shipping !== "inpost" &&
-        (addressLine1 || city || postalCode || name || phone)
-      ) {
-        await stripe.customers.update(customerId, {
-          shipping: {
-            name:  name  || undefined,
-            phone: phone || undefined,
-            address: {
-              line1:       addressLine1 || undefined,
-              city:        city         || undefined,
-              postal_code: postalCode   || undefined,
-              country,
-            },
-          },
-        });
-      }
+    // uaktualnij top-level, gdy klient istniał
+    const toUpdate: Stripe.CustomerUpdateParams = {};
+    if (customer.name !== name)  toUpdate.name  = name;
+    if (customer.phone !== phone) toUpdate.phone = phone;
+    if (Object.keys(toUpdate).length) {
+      await stripe.customers.update(customerId, toUpdate);
     }
 
-    // ⚠ customer XOR (customer_email + customer_creation)
-    const whoIsPaying: Partial<Stripe.Checkout.SessionCreateParams> =
-      customerId
-        ? { customer: customerId } // mamy klienta → używamy go (z prefilled name/phone)
-        : {
-            customer_email: email || undefined,
-            customer_creation: "if_required", // tylko gdy NIE ma customer
-          };
+    // prefill sekcji adresu wysyłki (pole „Imię i nazwisko” i „Telefon”)
+    if (shipping === "courier") {
+      await stripe.customers.update(customerId, {
+        shipping: {
+          name,
+          phone,
+          address: {
+            line1:       addressLine1,
+            city,
+            postal_code: postalCode,
+            country,
+          },
+        },
+      });
+    }
 
+    // ===== customer XOR (customer_email + customer_creation) =====
+    const whoIsPaying: Partial<Stripe.Checkout.SessionCreateParams> = {
+      customer: customerId,
+    };
+
+    // ===== Sesja Checkout =====
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       locale: "pl",
@@ -191,17 +201,15 @@ export async function POST(req: NextRequest) {
       success_url: `${url}/book/success`,
       cancel_url:  `${url}/book/cancel`,
 
-      ...whoIsPaying,
+      ...whoIsPaying, // używamy istniejącego/utworzonego klienta
 
-      // pozwól edytować to, co prefillowaliśmy
+      // pozwól edytować prefillowane dane
       customer_update: { address: "auto", shipping: "auto", name: "auto" },
 
       shipping_address_collection,
       shipping_options,
 
-      // pokaż pole telefonu w górnej sekcji i wypełnij je z customer.phone
       phone_number_collection: { enabled: true },
-
       billing_address_collection: "required",
       allow_promotion_codes: true,
 
