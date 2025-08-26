@@ -8,7 +8,8 @@ import { supabaseAdmin } from "../lib/supabaseAdmin"; // popraw ścieżkę jeśl
 export const dynamic = "force-dynamic";
 
 async function getAuth() {
-  const token = (await cookies()).get("session")?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
   if (!token) return null;
 
   try {
@@ -43,7 +44,9 @@ export default async function Userpage() {
         {/* pasek z cofnięciem */}
         <div className="border-b border-white/10">
           <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-            <Link href="/" className="text-white/70 hover:text-white">← Wróć na stronę główną</Link>
+            <Link href="/" className="text-white/70 hover:text-white">
+              ← Wróć na stronę główną
+            </Link>
             <div className="text-white/60 text-sm">
               Zalogowano jako <span className="text-white">{auth.email}</span>
             </div>
@@ -67,7 +70,9 @@ export default async function Userpage() {
       {/* pasek z cofnięciem */}
       <div className="border-b border-white/10">
         <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="text-white/70 hover:text-white">← Wróć na stronę główną</Link>
+          <Link href="/" className="text-white/70 hover:text-white">
+            ← Wróć na stronę główną
+          </Link>
           <div className="text-white/60 text-sm">
             Zalogowano jako <span className="text-white">{auth.email}</span>
           </div>
@@ -83,12 +88,12 @@ export default async function Userpage() {
             <p className="mt-2 text-white/70">
               Wygląda na to, że przewodnik nie został jeszcze wykupiony.
             </p>
-            <a
+            <Link
               href="/checkout"
               className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-rose-500 hover:bg-rose-400 px-4 py-2 font-semibold transition-colors"
             >
               Kup dostęp do przewodnika
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="mt-8 space-y-6">
@@ -100,19 +105,19 @@ export default async function Userpage() {
 
               <ul className="mt-4 list-disc pl-6 space-y-2 text-white/80">
                 <li>
-                  <a className="text-rose-300 hover:text-rose-200" href="#">
+                  <Link className="text-rose-300 hover:text-rose-200" href="/userpage/rozdzial/1">
                     Rozdział 1 — Start i fundamenty
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a className="text-rose-300 hover:text-rose-200" href="#">
+                  <Link className="text-rose-300 hover:text-rose-200" href="/userpage/rozdzial/2">
                     Rozdział 2 — Plan krok po kroku
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a className="text-rose-300 hover:text-rose-200" href="#">
+                  <Link className="text-rose-300 hover:text-rose-200" href="/userpage/rozdzial/3">
                     Rozdział 3 — Scenariusze rozmów i działania
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
