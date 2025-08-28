@@ -1,28 +1,23 @@
 "use client";
+import { useMemo, useState } from "react";
 
-import { useState } from "react";
-import dynamic from "next/dynamic";
-import ClientGuards from "./ClientGuards";
-import OrderBookButton from "../../../book/OrderBookButton";
-
-// PDF tylko w przeglądarce (bez SSR)
-const ProtectedPDF = dynamic(() => import("./ProtectedPDF"), { ssr: false });
-
-type Props = {
-  pdfSrc: string;
-  email: string;
-  isLast: boolean; // ← decyduje, czy pokazać CTA
-};
-
-export default function ChapterClient({ pdfSrc, email, isLast }: Props) {
-  // ==== stan modala „Wyślij partnerowi” ====
+export default function PartnerMailCta({
+  chapterId,
+  maxChapters = 3,
+}: {
+  chapterId: number;
+  maxChapters?: number;
+}) {
+  const isLast = useMemo(() => chapterId >= maxChapters, [chapterId, maxChapters]);
   const [open, setOpen] = useState(false);
   const [partnerEmail, setPartnerEmail] = useState("");
   const [days, setDays] = useState(3);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const startSchedule = async () => {
+  if (!isLast) return null;
+
+  const start = async () => {
     setMsg(null);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail)) {
       setMsg("Podaj poprawny e-mail partnera.");
@@ -47,45 +42,19 @@ export default function ChapterClient({ pdfSrc, email, isLast }: Props) {
   };
 
   return (
-    <div className="chapter-view">
-      <ClientGuards email={email} />
+    <div className="mt-6 rounded-2xl border border-white/10 bg-[#1a1d2e] p-6">
+      <h3 className="text-xl font-semibold">Wyślij treść partnerowi</h3>
+      <p className="text-white/70 mt-1">
+        Automatycznie prześlemy PDF-y z rozdziałami co <strong>3 dni</strong> (domyślnie) na wskazany adres e-mail.
+      </p>
 
-      <div className="mt-6">
-        <ProtectedPDF src={pdfSrc} />
-      </div>
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-4 rounded-xl bg-rose-500 hover:bg-rose-400 px-4 py-2 font-semibold"
+      >
+        Wyślij partnerowi (co 3 dni)
+      </button>
 
-      {/* CTA tylko na ostatnim rozdziale */}
-      {isLast && (
-        <div className="mt-8 space-y-4">
-          {/* CTA: zamów książkę w okładce */}
-          <div className="rounded-2xl border border-white/10 bg-[#1a1d2e] p-6">
-            <h3 className="text-lg font-semibold">Chcesz wydanie fizyczne?</h3>
-            <p className="text-white/70 mt-1">
-              Zamów książkę w okładce – w kolejnym kroku podasz dane do wysyłki.
-            </p>
-            <div className="mt-4">
-              <OrderBookButton />
-            </div>
-          </div>
-
-          {/* CTA: wyślij partnerowi co X dni */}
-          <div className="rounded-2xl border border-white/10 bg-[#1a1d2e] p-6">
-            <h3 className="text-lg font-semibold">Wyślij treść partnerowi</h3>
-            <p className="text-white/70 mt-1">
-              Automatycznie prześlemy PDF-y z rozdziałami co <strong>{days}</strong> dni na wskazany e-mail.
-            </p>
-
-            <button
-              onClick={() => setOpen(true)}
-              className="mt-4 rounded-xl bg-rose-500 hover:bg-rose-400 px-4 py-2 font-semibold"
-            >
-              Wyślij partnerowi (co {days} dni)
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: ustawienia wysyłki (pojawia się po kliknięciu przycisku) */}
       {open && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
@@ -97,10 +66,7 @@ export default function ChapterClient({ pdfSrc, email, isLast }: Props) {
           >
             <div className="flex items-center justify-between">
               <h4 className="text-lg font-semibold">Wyślij kurs partnerowi</h4>
-              <button
-                className="text-white/60 hover:text-white"
-                onClick={() => !busy && setOpen(false)}
-              >
+              <button className="text-white/60 hover:text-white" onClick={() => !busy && setOpen(false)}>
                 ✕
               </button>
             </div>
@@ -121,9 +87,7 @@ export default function ChapterClient({ pdfSrc, email, isLast }: Props) {
                 min={1}
                 max={30}
                 value={days}
-                onChange={(e) =>
-                  setDays(Math.min(30, Math.max(1, Number(e.target.value) || 3)))
-                }
+                onChange={(e) => setDays(Math.min(30, Math.max(1, Number(e.target.value) || 3)))}
                 className="w-28 rounded-xl bg-[#0f1222] border border-white/10 px-3 py-2 outline-none focus:border-white/20"
               />
 
@@ -131,15 +95,13 @@ export default function ChapterClient({ pdfSrc, email, isLast }: Props) {
 
               <button
                 disabled={busy}
-                onClick={startSchedule}
+                onClick={start}
                 className="mt-2 w-full rounded-xl bg-rose-500 hover:bg-rose-400 px-4 py-2 font-semibold disabled:opacity-60"
               >
                 {busy ? "Zapisywanie…" : "Zacznij wysyłkę"}
               </button>
 
-              <p className="text-xs text-white/60">
-                W każdej chwili możemy dodać pauzę/wznowienie i podgląd postępu w „Moje konto”.
-              </p>
+              <p className="text-xs text-white/60">Możesz nas poprosić później o pauzę/wznowienie.</p>
             </div>
           </div>
         </div>

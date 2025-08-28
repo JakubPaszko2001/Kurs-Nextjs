@@ -37,8 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
     }
 
-    // Użyj stabilnej wersji Stripe API
-    const stripe = new Stripe(secret, { apiVersion: "2025-07-30.basil" });
+    const stripe = new Stripe(secret, { apiVersion: "2024-06-20" });
     const url = baseUrl(req);
 
     const cookieEmail = await getEmailFromCookie();
@@ -48,22 +47,21 @@ export async function POST(req: NextRequest) {
       email = cookieEmail,
       name,
       phone,
+      qty: rawQty,
 
       shipping,        // "courier" | "inpost"
       courierRate,     // "standard" | "express"
 
-      // adres dla kuriera
       addressLine1,
       city,
       postalCode,
       country = "PL",
 
-      // InPost
       lockerCity,
       lockerId,
     } = body as Record<string, any>;
 
-    // ===== Walidacja wymaganych pól =====
+    // ===== Walidacja podstawowa =====
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
       return NextResponse.json({ error: "Podaj poprawny adres e-mail." }, { status: 400 });
     }
@@ -73,6 +71,12 @@ export async function POST(req: NextRequest) {
     if (!phone || !/^\+?\d{9,15}$/.test(String(phone))) {
       return NextResponse.json({ error: "Telefon jest wymagany." }, { status: 400 });
     }
+
+    // Ilość (sanity)
+    let qty = Number.isFinite(rawQty) ? Number(rawQty) : 1;
+    if (qty < 1) qty = 1;
+    if (qty > 10) qty = 10;
+
     if (shipping === "courier") {
       if (!addressLine1 || !postalCode || !city) {
         return NextResponse.json({ error: "Uzupełnij adres dla kuriera." }, { status: 400 });
@@ -91,9 +95,9 @@ export async function POST(req: NextRequest) {
     const productName = process.env.STRIPE_BOOK_NAME || "Książka w okładce";
 
     const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = priceId
-      ? [{ price: priceId, quantity: 1 }]
+      ? [{ price: priceId, quantity: qty }]
       : [{
-          quantity: 1,
+          quantity: qty,
           price_data: {
             currency: "pln",
             unit_amount: amountFallback,
@@ -117,6 +121,7 @@ export async function POST(req: NextRequest) {
       kind: "physical_book",
       user_email: String(email),
       shipping_method: shipping,
+      qty: String(qty),
     };
 
     if (shipping === "inpost") {
@@ -150,21 +155,18 @@ export async function POST(req: NextRequest) {
       shipping_options = [{ shipping_rate_data: { type: "fixed_amount", ...rate } }];
     }
 
-    // ===== Customer: znajdź/stwórz + prefill imienia/telefonu/adresu =====
-    let customerId: string | undefined;
-
+    // ===== Customer i prefill =====
     const found = await stripe.customers.list({ email, limit: 1 });
     const customer =
       found.data[0] ??
       (await stripe.customers.create({
         email,
         name,
-        phone, // top-level phone (prefill górnego pola Checkout)
+        phone,
       }));
 
-    customerId = customer.id;
+    const customerId = customer.id;
 
-    // uaktualnij top-level, gdy klient istniał
     const toUpdate: Stripe.CustomerUpdateParams = {};
     if (customer.name !== name)  toUpdate.name  = name;
     if (customer.phone !== phone) toUpdate.phone = phone;
@@ -172,7 +174,6 @@ export async function POST(req: NextRequest) {
       await stripe.customers.update(customerId, toUpdate);
     }
 
-    // prefill sekcji adresu wysyłki (pole „Imię i nazwisko” i „Telefon”)
     if (shipping === "courier") {
       await stripe.customers.update(customerId, {
         shipping: {
@@ -188,11 +189,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ===== customer XOR (customer_email + customer_creation) =====
-    const whoIsPaying: Partial<Stripe.Checkout.SessionCreateParams> = {
-      customer: customerId,
-    };
-
     // ===== Sesja Checkout =====
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -201,11 +197,9 @@ export async function POST(req: NextRequest) {
       success_url: `${url}/book/success`,
       cancel_url:  `${url}/book/cancel`,
 
-      ...whoIsPaying, // używamy istniejącego/utworzonego klienta
+      customer: customerId,
 
-      // pozwól edytować prefillowane dane
       customer_update: { address: "auto", shipping: "auto", name: "auto" },
-
       shipping_address_collection,
       shipping_options,
 

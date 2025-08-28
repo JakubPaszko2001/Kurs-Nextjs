@@ -1,16 +1,16 @@
 // src/app/userpage/rozdzial/[id]/page.tsx
+import type { PageProps } from "next";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
-import ChapterClient from "./ChapterClient"; // ⬅️ klientowy wrapper
+import ChapterClient from "./ChapterClient";
 
 export const dynamic = "force-dynamic";
 
 async function getAuth() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
+  const token = (await cookies()).get("session")?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(
@@ -26,11 +26,8 @@ async function getAuth() {
   }
 }
 
-export default async function ChapterPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function ChapterPage({ params }: PageProps<{ id: string }>) {
+  const { id } = await params; // <— WAŻNE w Next 15
   const auth = await getAuth();
   if (!auth) redirect("/login");
 
@@ -44,17 +41,14 @@ export default async function ChapterPage({
     redirect("/userpage");
   }
 
-  // Ścieżka do PDF: 1.pdf, 2.pdf, 3.pdf...
-  const pdfSrc = `/protected/chapters/${params.id}.pdf`;
+  const pdfSrc = `/protected/chapters/${id}.pdf`;
 
-  // Pokaż CTA tylko w ostatnim rozdziale (3)
-  const LAST = 3;
-  const idNum = Number(params.id);
+  const LAST = 3; // zmień jeśli masz inny ostatni
+  const idNum = Number(id);
   const isLast = Number.isFinite(idNum) && idNum === LAST;
 
   return (
     <div className="min-h-screen bg-[#0f1222] text-white">
-      {/* pasek */}
       <div className="border-b border-white/10">
         <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
           <Link href="/userpage" className="text-white/70 hover:text-white">
@@ -67,16 +61,12 @@ export default async function ChapterPage({
       </div>
 
       <div className="mx-auto max-w-5xl px-4 py-6">
-        <h1 className="text-3xl font-bold">Rozdział {params.id}</h1>
+        <h1 className="text-3xl font-bold">Rozdział {id}</h1>
 
-        {/* Klientowy wrapper: render PDF (ssr:false) + CTA dla ostatniego rozdziału */}
-        <ChapterClient
-          pdfSrc={pdfSrc}
-          email={auth.email}
-          isLast={isLast}
-        />
+        <div className="mt-6">
+          <ChapterClient pdfSrc={pdfSrc} email={auth.email} isLast={isLast} />
+        </div>
 
-        {/* blokada wydruku sekcji z PDF */}
         <style
           dangerouslySetInnerHTML={{
             __html: `@media print { .chapter-view { display: none !important; } }`,

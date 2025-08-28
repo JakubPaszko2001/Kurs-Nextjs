@@ -6,18 +6,15 @@ import InpostSelect from "./InpostSelect";
 
 // ===== Helpers telefonu (PL) =====
 const toE164PL = (raw: string) => {
-  // "500 600 700" -> "+48500600700"
-  // Zwraca "" jeśli nie ma 9 cyfr (nieprawidłowy numer).
   let d = (raw || "").replace(/\D/g, "");
   if (!d) return "";
-  if (d.startsWith("0048")) d = d.slice(4); // usuń 0048
-  if (d.startsWith("48")) d = d.slice(2);   // usuń 48
+  if (d.startsWith("0048")) d = d.slice(4);
+  if (d.startsWith("48")) d = d.slice(2);
   if (d.length !== 9) return "";
   return `+48${d}`;
 };
 
 const formatPLGroups = (raw: string) => {
-  // prezentacja jako "500 600 700"
   const d = (raw || "").replace(/\D/g, "").slice(0, 9);
   return d.replace(/(\d{3})(\d{0,3})(\d{0,3}).*/, (_, a, b, c) =>
     [a, b, c].filter(Boolean).join(" ")
@@ -28,11 +25,11 @@ const formatPLGroups = (raw: string) => {
 const formatPLN = (v: number) =>
   (v / 100).toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
 
-// Ceny (możesz nadpisać publicznymi ENV)
+// Ceny (per sztuka – można nadpisać ENV)
 const ORIGINAL = Number(process.env.NEXT_PUBLIC_BOOK_ORIGINAL_PLN ?? "20000"); // 200,00 zł
 const PRICE    = Number(process.env.NEXT_PUBLIC_BOOK_PRICE_PLN    ?? "9900");  // 99,00 zł
 
-// Dostawa (publiczne ENV też działają)
+// Dostawa (liczona od zamówienia – raz)
 const COURIER_STD = Number(process.env.NEXT_PUBLIC_SHIP_COURIER_STANDARD_PLN ?? "0");
 const COURIER_EXP = Number(process.env.NEXT_PUBLIC_SHIP_COURIER_EXPRESS_PLN ?? "1900");
 const INPOST      = Number(process.env.NEXT_PUBLIC_SHIP_INPOST_PLN           ?? "1200");
@@ -41,7 +38,10 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
   // Dane kontaktowe
   const [email, setEmail] = useState(defaultEmail || "");
   const [name, setName]   = useState("");
-  const [phone, setPhone] = useState(""); // przechowujemy "surowy" wpis; do API wyślemy E.164
+  const [phone, setPhone] = useState("");
+
+  // Ilość
+  const [qty, setQty] = useState<number>(1); // 1..10
 
   // Dostawa
   const [shipping, setShipping] = useState<"courier" | "inpost">("courier");
@@ -56,7 +56,7 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
   const [lockerCity, setLockerCity] = useState("");
   const [lockerId,   setLockerId]   = useState("");
 
-  // Kupon (informacyjnie – kupony obsługuje Stripe)
+  // Kupon (info – kupony w Stripe)
   const [coupon, setCoupon] = useState("");
 
   const shipCost = useMemo(() => {
@@ -64,11 +64,13 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
     return courierRate === "express" ? COURIER_EXP : COURIER_STD;
   }, [shipping, courierRate]);
 
-  // Rabat bazowy (przecena względem katalogowej)
+  // Obliczenia dla wielu sztuk
+  const catalogSubtotal     = ORIGINAL * qty;
+  const subtotal            = PRICE * qty;
   const baseDiscountPerItem = ORIGINAL - PRICE;
-  const baseDiscountPct = ((baseDiscountPerItem / ORIGINAL) * 100).toFixed(1);
-
-  const total = PRICE + shipCost;
+  const baseDiscountTotal   = baseDiscountPerItem * qty;
+  const baseDiscountPct     = ((baseDiscountPerItem / ORIGINAL) * 100).toFixed(1);
+  const total               = subtotal + shipCost; // wysyłka liczona raz
 
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState<string | null>(null);
@@ -91,6 +93,10 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
       setErr("Podaj poprawny numer telefonu (9 cyfr).");
       return;
     }
+    if (qty < 1 || qty > 10) {
+      setErr("Nieprawidłowa ilość (dozwolone 1–10).");
+      return;
+    }
     if (shipping === "courier" && (!addressLine1 || !postalCode || !city)) {
       setErr("Uzupełnij adres dla kuriera.");
       return;
@@ -108,7 +114,8 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
         body: JSON.stringify({
           email,
           name,
-          phone: phoneE164,          // ⬅ wysyłamy w E.164: +48xxxxxxxxx
+          phone: phoneE164,
+          qty,                    // ⬅ ilość
           shipping,
           courierRate,
           addressLine1,
@@ -120,7 +127,6 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
         }),
       });
 
-      // bezpieczne parsowanie (gdyby backend zwrócił tekst/HTML)
       const text = await res.text();
       let json: any;
       try { json = JSON.parse(text); } catch { json = { error: text }; }
@@ -164,7 +170,7 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
           <h2 className="text-2xl font-bold">Pełen Dostęp do Przewodnika</h2>
           <p className="text-white/60 text-sm">Jednorazowa płatność — dostęp na zawsze.</p>
 
-          {/* Cena z przeceną */}
+          {/* Cena z przeceną (per sztuka) */}
           <div className="mt-4 flex items-baseline gap-3">
             <div className="text-4xl font-extrabold">{formatPLN(PRICE)}</div>
             <div className="line-through text-white/50">{formatPLN(ORIGINAL)}</div>
@@ -174,6 +180,31 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
           </div>
           <div className="text-white/60 text-xs mt-1">
             Oszczędzasz {formatPLN(baseDiscountPerItem)} na sztuce
+          </div>
+          
+          {/* Ilość */}
+          <div className="mt-6">
+            <label className="text-sm text-white/70">Ilość</label>
+            <div className="mt-2 inline-flex items-center rounded-xl border border-white/10">
+              <button
+                type="button"
+                className="px-3 py-2 hover:bg-white/5"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                aria-label="Zmień ilość -"
+              >
+                −
+              </button>
+              <div className="px-4 py-2 min-w-[3rem] text-center">{qty}</div>
+              <button
+                type="button"
+                className="px-3 py-2 hover:bg-white/5"
+                onClick={() => setQty((q) => Math.min(10, q + 1))}
+                aria-label="Zmień ilość +"
+              >
+                +
+              </button>
+            </div>
+            <div className="mt-1 text-xs text-white/50">Maks. 10 sztuk na zamówienie</div>
           </div>
 
           {/* Dane klienta */}
@@ -200,8 +231,8 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
               />
             </div>
 
-            {/* Telefon z automatycznym prefiksem +48 */}
-            <div>
+            {/* Telefon +48 */}
+            <div className="md:col-span-2">
               <label className="text-sm text-white/70">Telefon</label>
               <div className="relative mt-1">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-white/70 select-none">
@@ -220,9 +251,14 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
                   className="w-full rounded-xl bg-[#0f1222] border border-white/10 pl-14 pr-3 py-2 outline-none focus:border-rose-400"
                 />
               </div>
+              <p className="text-xs mt-1">
+                {toE164PL(phone)
+                  ? <span className="text-white/50">Zapiszemy jako <span className="font-mono">{toE164PL(phone)}</span></span>
+                  : <span className="text-rose-300">Wpisz poprawny numer (9 cyfr).</span>
+                }
+              </p>
             </div>
           </div>
-
           {/* Dostawa */}
           <div className="mt-6">
             <div className="text-sm text-white/70">Dostawa</div>
@@ -338,12 +374,25 @@ export default function CheckoutForm({ defaultEmail }: { defaultEmail?: string }
 
           {/* Podsumowanie */}
           <div className="mt-6 border-t border-white/10 pt-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span>Cena katalogowa</span><span>{formatPLN(ORIGINAL)}</span></div>
-            <div className="flex justify-between"><span>Przecena</span><span className="text-rose-300">− {formatPLN(baseDiscountPerItem)}</span></div>
-            <div className="flex justify-between"><span>Cena po przecenie</span><span>{formatPLN(PRICE)}</span></div>
-            <div className="flex justify-between"><span>Dostawa</span><span>{formatPLN(shipCost)}</span></div>
+            <div className="flex justify-between">
+              <span>Cena katalogowa</span>
+              <span>{formatPLN(catalogSubtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Przecena</span>
+              <span className="text-rose-300">− {formatPLN(baseDiscountTotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Cena po przecenie</span>
+              <span>{formatPLN(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Dostawa</span>
+              <span>{formatPLN(shipCost)}</span>
+            </div>
             <div className="flex justify-between text-lg font-semibold pt-2 border-t border-white/10">
-              <span>Do zapłaty</span><span>{formatPLN(total)}</span>
+              <span>Do zapłaty</span>
+              <span>{formatPLN(total)}</span>
             </div>
           </div>
 
