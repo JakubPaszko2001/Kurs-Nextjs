@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
     }
 
-    const stripe = new Stripe(secret, { apiVersion: "2024-06-20" });
+    const stripe = new Stripe(secret, { apiVersion: "2025-07-30.basil" });
     const url = baseUrl(req);
 
     const cookieEmail = await getEmailFromCookie();

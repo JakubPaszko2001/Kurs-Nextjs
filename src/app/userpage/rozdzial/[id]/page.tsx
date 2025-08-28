@@ -1,5 +1,5 @@
 // src/app/userpage/rozdzial/[id]/page.tsx
-import type { PageProps } from "next";
+// Removed invalid import for PageProps
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { redirect } from "next/navigation";
@@ -26,8 +26,8 @@ async function getAuth() {
   }
 }
 
-export default async function ChapterPage({ params }: PageProps<{ id: string }>) {
-  const { id } = await params; // <— WAŻNE w Next 15
+export default async function ChapterPage({ params }: { params: { id: string } }) {
+  const { id } = params; // <— WAŻNE w Next 15
   const auth = await getAuth();
   if (!auth) redirect("/login");
 
