@@ -1,5 +1,4 @@
 // src/app/userpage/rozdzial/[id]/page.tsx
-import type { PageProps } from "next";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { redirect } from "next/navigation";
@@ -10,7 +9,8 @@ import ChapterClient from "./ChapterClient";
 export const dynamic = "force-dynamic";
 
 async function getAuth() {
-  const token = (await cookies()).get("session")?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(
@@ -26,8 +26,10 @@ async function getAuth() {
   }
 }
 
-export default async function ChapterPage({ params }: PageProps<{ id: string }>) {
-  const { id } = await params; // <— WAŻNE w Next 15
+export default async function ChapterPage(
+  { params }: { params: Promise<{ id: string }> } // Next 15: params to Promise
+) {
+  const { id } = await params; // trzeba await
   const auth = await getAuth();
   if (!auth) redirect("/login");
 
@@ -42,10 +44,8 @@ export default async function ChapterPage({ params }: PageProps<{ id: string }>)
   }
 
   const pdfSrc = `/protected/chapters/${id}.pdf`;
-
-  const LAST = 3; // zmień jeśli masz inny ostatni
-  const idNum = Number(id);
-  const isLast = Number.isFinite(idNum) && idNum === LAST;
+  const LAST = 3;
+  const isLast = Number(id) === LAST;
 
   return (
     <div className="min-h-screen bg-[#0f1222] text-white">
@@ -63,9 +63,7 @@ export default async function ChapterPage({ params }: PageProps<{ id: string }>)
       <div className="mx-auto max-w-5xl px-4 py-6">
         <h1 className="text-3xl font-bold">Rozdział {id}</h1>
 
-        <div className="mt-6">
-          <ChapterClient pdfSrc={pdfSrc} email={auth.email} isLast={isLast} />
-        </div>
+        <ChapterClient pdfSrc={pdfSrc} email={auth.email} isLast={isLast} />
 
         <style
           dangerouslySetInnerHTML={{
