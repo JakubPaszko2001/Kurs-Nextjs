@@ -1,6 +1,7 @@
+// src/app/api/partner-mail/cron/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter, type SendMailOptions, type SentMessageInfo } from "nodemailer";
 import fs from "fs";
 import path from "path";
 
@@ -14,18 +15,13 @@ const supabase = createClient(
 
 const MAX_CHAPTERS = 3;
 
-/**
- * Transporter poczty:
- * - jeśli brak SMTP_HOST → tryb testowy (streamTransport) i mail leci do konsoli
- * - jeśli masz SMTP_* w env → wysyła normalnie
- */
-function makeTransport() {
+function makeTransport(): Transporter {
   if (!process.env.SMTP_HOST) {
     return nodemailer.createTransport({
       streamTransport: true,
       newline: "unix",
       buffer: true,
-    });
+    }) as unknown as Transporter;
   }
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST!,
@@ -37,34 +33,42 @@ function makeTransport() {
   });
 }
 
-/**
- * Załącznik PDF rozdziału z public/protected/chapters/{n}.pdf
- */
 function chapterAttachment(n: number) {
   const p = path.join(process.cwd(), "public", "protected", "chapters", `${n}.pdf`);
   if (!fs.existsSync(p)) return null;
   return { filename: `rozdzial-${n}.pdf`, content: fs.readFileSync(p) };
 }
 
+// 👇 helper: promise wrapper na callbackową wersję sendMail
+function sendMailAsync(tx: Transporter, mail: SendMailOptions) {
+  return new Promise<SentMessageInfo>((resolve, reject) => {
+    tx.sendMail(mail, (err, info) => (err ? reject(err) : resolve(info)));
+  });
+}
+
 export async function GET(req: NextRequest) {
-  // Proste zabezpieczenie kluczem
   const key = req.nextUrl.searchParams.get("key");
   if (!key || key !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // DEV fast mode: co X minut zamiast dni (np. &fast=1&minutes=1)
+  // DEV fast mode
   const fast = req.nextUrl.searchParams.get("fast") === "1";
   const fastMinutes = Math.max(1, Number(req.nextUrl.searchParams.get("minutes") || "1"));
+  const force = req.nextUrl.searchParams.get("force") === "1";
 
   const now = new Date().toISOString();
 
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from("partner_mailings")
     .select("*")
-    .eq("status", "active")
-    .lte("next_send_at", now)
-    .limit(50);
+    .eq("status", "active");
+
+  if (!force) {
+    query = query.lte("next_send_at", now);
+  }
+
+  const { data: rows, error } = await query.limit(50);
 
   if (error) {
     console.error("[partner-mail:cron] select error", error);
@@ -73,13 +77,12 @@ export async function GET(req: NextRequest) {
 
   if (!rows?.length) return NextResponse.json({ processed: 0 });
 
-  const tx = makeTransport();
+  const tx: Transporter = makeTransport();
   let processed = 0;
 
   for (const row of rows) {
     const n = Math.max(1, Number(row.current_chapter || 1));
     const attach = chapterAttachment(n);
-
     const subject = `Rozdział ${n} — Wasz plan krok po kroku`;
     const text =
 `Cześć!
@@ -90,7 +93,7 @@ W załączniku Rozdział ${n}. Kolejny przyjdzie automatycznie.
 Miłej lektury!`;
 
     try {
-      const info = await tx.sendMail({
+      const info = await sendMailAsync(tx, {
         from: process.env.MAIL_FROM || `Przewodnik <noreply@localhost>`,
         to: row.partner_email,
         subject,
@@ -98,28 +101,22 @@ Miłej lektury!`;
         attachments: attach ? [attach] : undefined,
       });
 
-      // Jeśli streamTransport (brak SMTP) — pokaż treść w konsoli
       if ((tx as any).options?.streamTransport) {
-        console.log("=== MAIL PREVIEW (not sent) ===\n" + info.message.toString());
+        console.log("=== MAIL PREVIEW (not sent) ===\n" + (info as any).message?.toString?.());
       }
 
       processed += 1;
 
-      // Aktualizacja harmonogramu
       if (n >= MAX_CHAPTERS) {
-        // ostatni rozdział: zakończ harmonogram
         await supabase
           .from("partner_mailings")
           .update({ status: "finished" })
           .eq("id", row.id);
       } else {
-        // kolejny termin
         const next = new Date();
-        if (fast) {
-          next.setMinutes(next.getMinutes() + fastMinutes); // DEV: co X minut
-        } else {
-          next.setDate(next.getDate() + Number(row.cadence_days || 3)); // PROD: co X dni
-        }
+        if (fast) next.setMinutes(next.getMinutes() + fastMinutes);
+        else next.setDate(next.getDate() + Number(row.cadence_days || 3));
+
         await supabase
           .from("partner_mailings")
           .update({
@@ -129,8 +126,8 @@ Miłej lektury!`;
           .eq("id", row.id);
       }
     } catch (e) {
-      console.error("[partner-mail:cron] send error", e);
-      // tu można dodać retry / zapis błędu do dodatkowej tabeli logów
+      console.error("[partner-mail:cron] send error:", e);
+      // tu możesz dopisać zapis do tabeli logów
     }
   }
 
