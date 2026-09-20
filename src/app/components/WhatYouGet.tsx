@@ -459,7 +459,8 @@ export default function WhatYouGetInteractive() {
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-xs font-semibold text-slate-300">Dostępne w pełnym pakiecie</span>
                 </div>
-                <span className="text-xs font-bold text-rose-400 uppercase tracking-wide">PDF • ePub • MOBI</span>
+
+                <span className="text-xs font-bold text-rose-400 uppercase tracking-wide">PDF</span>
               </div>
 
             </div>
@@ -492,11 +493,11 @@ export default function WhatYouGetInteractive() {
                 </div>
                 <span>Natychmiastowy dostęp</span>
               </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-300">
+                            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-300">
                 <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
                   <Check className="w-3.5 h-3.5" />
                 </div>
-                <span>Formaty PDF, ePub, MOBI</span>
+                <span>Format PDF</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-300">
                 <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">

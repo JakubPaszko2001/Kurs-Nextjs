@@ -152,7 +152,7 @@ const WhyItWorks = () => {
 
             <div className="relative z-10 max-w-xl mx-auto space-y-2">
               <p className="text-lg sm:text-xl md:text-2xl font-extrabold text-white leading-snug tracking-tight">
-                „Nie obiecujemy cudu.”
+                „Koniec z zgadywaniem.”
               </p>
               <p className="text-base sm:text-lg text-rose-200/90 font-medium leading-relaxed">
                 Dajemy Ci plan, z którym wreszcie możesz zacząć działać.
