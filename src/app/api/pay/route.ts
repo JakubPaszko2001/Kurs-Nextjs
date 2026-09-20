@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: "pln",
           unit_amount: body.subtotal, // grosze
-          product_data: { name: "Pełen Dostęp do Przewodnika" },
+          product_data: { name: "Plan odzyskania bliskości – pełen dostęp" },
         },
         quantity: body.qty ?? 1,
       },
@@ -53,3 +53,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ url: session.url });
 }
+
