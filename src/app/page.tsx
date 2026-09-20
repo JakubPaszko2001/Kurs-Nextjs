@@ -8,6 +8,7 @@ import Purchase from "./components/Purchase";
 import FAQ from "./components/FAQ";
 import FinalCTA from "./components/FinalCTA";
 import Footer from "./components/Footer";
+import StructuredData from "./components/StructuredData";
 
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -52,10 +53,12 @@ export default async function Page() {
         <WhyItWorks />
         <Purchase />
         <FAQ />
-        <FinalCTA />
+                <FinalCTA />
       </main>
 
       <Footer />
+
+      <StructuredData />
     </div>
   );
 }
