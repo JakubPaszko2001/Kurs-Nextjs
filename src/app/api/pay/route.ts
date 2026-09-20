@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   }
 
   const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const stripe = new Stripe(stripeKey, { apiVersion: "2025-07-30.basil" });
+  const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",

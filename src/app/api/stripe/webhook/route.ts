@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const stripe = new Stripe(stripeKey, { apiVersion: "2025-07-30.basil" });
+  const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
   let event: Stripe.Event;
   try {
