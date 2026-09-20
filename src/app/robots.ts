@@ -1,4 +1,4 @@
-Zimport type { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://kurs-nextjs.vercel.app";
