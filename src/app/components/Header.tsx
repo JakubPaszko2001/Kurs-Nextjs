@@ -132,10 +132,15 @@ const Header: React.FC<HeaderProps> = ({ loggedIn, userEmail }) => {
               {link.label}
             </a>
           ))}
-        </nav>
+
+
+
+
+
+                </nav>
 
         {/* Przyciski Akcji (Desktop) */}
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           {loggedIn ? (
             <>
               {/* Moje konto */}
@@ -178,11 +183,11 @@ const Header: React.FC<HeaderProps> = ({ loggedIn, userEmail }) => {
           </Link>
         </div>
 
-        {/* Przycisk Menu Mobilnego */}
+                  {/* Przycisk Menu Mobilnego */}
         <div className="flex items-center gap-2 lg:hidden">
           <Link
             href="/checkout"
-            className="sm:hidden inline-flex items-center justify-center rounded-xl bg-rose-500 text-white text-xs font-extrabold px-3 py-2 shadow-md shadow-rose-500/20"
+            className="lg:hidden inline-flex items-center justify-center rounded-xl bg-rose-500 text-white text-xs font-extrabold px-3 py-2 shadow-md shadow-rose-500/20"
           >
             Kup teraz
           </Link>

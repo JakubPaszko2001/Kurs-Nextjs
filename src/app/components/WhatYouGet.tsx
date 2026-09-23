@@ -316,10 +316,92 @@ const MODULES_DATA = [
 ];
 
 export default function WhatYouGetInteractive() {
+  // activeTab – który moduł pokazać w prawej kolumnie na desktopie + podświetlenie na liście
   const [activeTab, setActiveTab] = useState(MODULES_DATA[0].id);
+  // openMobile – który panel jest rozwinięty w akordeonie na mobile/tablecie
+  const [openMobile, setOpenMobile] = useState<string>(MODULES_DATA[0].id);
 
-  const selectedModule = MODULES_DATA.find((m) => m.id === activeTab) || MODULES_DATA[0];
-  const SelectedIcon = selectedModule.icon;
+  const handleSelect = (id: string) => {
+    setActiveTab(id);
+    setOpenMobile((prev) => (prev === id ? '' : id)); // toggle tylko w akordeonie mobile
+  };
+
+      const selectedModule = MODULES_DATA.find((m) => m.id === activeTab) || MODULES_DATA[0];
+
+  // Wspólny widok szczegółów pojedynczego modułu.
+  // Używany dwa razy: w akordeonie na mobile/tablecie oraz w prawej kolumnie na desktopie.
+  const renderModuleDetails = (module: (typeof MODULES_DATA)[number]) => {
+    const Icon = module.icon;
+
+    return (
+      <>
+        {/* Dynamic ambient gradient inside active card */}
+        <div className={`absolute top-0 right-0 w-80 h-80 bg-gradient-to-br ${module.gradient} blur-3xl pointer-events-none rounded-full`} />
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500" />
+
+        {/* Module Header Badge & Time */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 relative z-10">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${module.bgColor} ${module.accentColor} border ${module.borderColor}`}>
+            <Award className="w-3.5 h-3.5" />
+            {module.badge}
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/50">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            {module.readTime}
+          </span>
+        </div>
+
+        {/* Main Module Content */}
+        <div className="relative z-10 mb-8">
+          <div className={`w-14 h-14 rounded-2xl ${module.bgColor} border ${module.borderColor} flex items-center justify-center ${module.accentColor} mb-5 shadow-lg`}>
+            <Icon className="w-7 h-7" />
+          </div>
+
+          <h3 className="text-2xl sm:text-3xl font-black text-white mb-2 leading-tight">
+            {module.title}
+          </h3>
+
+          <p className="text-rose-300/90 font-medium text-sm sm:text-base mb-4">
+            {module.subtitle}
+          </p>
+
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+            {module.desc}
+          </p>
+        </div>
+
+        {/* Key Bullet Highlights */}
+        <div className="relative z-10 pt-6 border-t border-slate-800/80 mb-8">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Sparkle className="w-3.5 h-3.5 text-rose-400" />
+            Co dokładnie wyciągniesz z tej części:
+          </h4>
+
+          <ul className="grid sm:grid-cols-1 gap-3">
+            {module.highlights.map((point, index) => (
+              <li key={index} className="flex items-start gap-3 text-sm text-slate-200">
+                <div className="mt-0.5 p-1 rounded-full bg-rose-500/20 text-rose-400 shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <span className="leading-snug">{point}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Included status tag */}
+        <div className="relative z-10 bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-300">Dostępne w pełnym pakiecie</span>
+          </div>
+
+          <span className="text-xs font-bold text-rose-400 uppercase tracking-wide">PDF</span>
+        </div>
+      </>
+    );
+  };
 
   return (
     <section id="co-dostajesz" className="min-h-screen bg-slate-950 text-slate-100 font-sans py-16 md:py-24 border-t border-slate-800/80 relative overflow-hidden">
@@ -346,123 +428,68 @@ export default function WhatYouGetInteractive() {
         {/* Interactive Tabs Grid */}
         <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start mb-20">
           
-          {/* Left Column: Interactive Nav List */}
+                    {/* Left Column: Interactive Nav List */}
           <div className="lg:col-span-5 space-y-2.5">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2 flex items-center justify-between">
               <span>Wybierz moduł z listy:</span>
               <span className="text-rose-400">{MODULES_DATA.length} Modułów</span>
             </p>
 
-            {MODULES_DATA.map((item) => {
+                        {MODULES_DATA.map((item) => {
               const Icon = item.icon;
               const isSelected = activeTab === item.id;
-              
+              const isOpenMobile = openMobile === item.id;
+
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full text-left p-3.5 sm:p-4 rounded-2xl transition-all duration-300 flex items-center gap-3.5 sm:gap-4 border group ${
-                    isSelected
-                      ? 'bg-slate-900/90 border-rose-500/60 shadow-lg shadow-rose-950/30 text-white ring-1 ring-rose-500/30 translate-x-1'
-                      : 'bg-slate-900/40 border-slate-800/80 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  <div className={`p-2.5 sm:p-3 rounded-xl transition-all duration-300 shrink-0 ${
-                    isSelected 
-                      ? `${item.bgColor} ${item.accentColor} border ${item.borderColor}` 
-                      : 'bg-slate-800/80 text-slate-400 group-hover:text-slate-200'
-                  }`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`font-bold text-sm sm:text-base truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-                        {item.title}
-                      </span>
+                <div key={item.id}>
+                  <button
+                    onClick={() => handleSelect(item.id)}
+                    aria-expanded={isOpenMobile}
+                    className={`w-full text-left p-3.5 sm:p-4 rounded-2xl transition-all duration-300 flex items-center gap-3.5 sm:gap-4 border group ${
+                      isSelected
+                        ? 'bg-slate-900/90 border-rose-500/60 shadow-lg shadow-rose-950/30 text-white ring-1 ring-rose-500/30 lg:translate-x-1'
+                        : 'bg-slate-900/40 border-slate-800/80 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className={`p-2.5 sm:p-3 rounded-xl transition-all duration-300 shrink-0 ${
+                      isSelected 
+                        ? `${item.bgColor} ${item.accentColor} border ${item.borderColor}` 
+                        : 'bg-slate-800/80 text-slate-400 group-hover:text-slate-200'
+                    }`}>
+                      <Icon className="w-5 h-5" />
                     </div>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
-                      {item.badge}
-                    </p>
-                  </div>
 
-                  <ChevronRight className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
-                    isSelected ? 'rotate-90 text-rose-400' : 'text-slate-600 group-hover:text-slate-400'
-                  }`} />
-                </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`font-bold text-sm sm:text-base truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                          {item.title}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                        {item.badge}
+                      </p>
+                    </div>
+
+                    <ChevronRight className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
+                      isSelected ? 'rotate-90 lg:rotate-0 text-rose-400' : 'text-slate-600 group-hover:text-slate-400'
+                    }`} />
+                  </button>
+
+                                    {/* Mobile / tablet: panel rozwija się bezpośrednio pod modułem */}
+                  {isOpenMobile && (
+                    <div className="lg:hidden mt-2.5 bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                      {renderModuleDetails(item)}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
 
-          {/* Right Column: Detailed Tab Viewer */}
-          <div className="lg:col-span-7">
+          {/* Right Column: Detailed Tab Viewer (tylko desktop) */}
+          <div className="hidden lg:block lg:col-span-7">
             <div className="sticky top-6 bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 md:p-10 backdrop-blur-2xl shadow-2xl relative overflow-hidden transition-all duration-500">
-              
-              {/* Dynamic ambient gradient inside active card */}
-              <div className={`absolute top-0 right-0 w-80 h-80 bg-gradient-to-br ${selectedModule.gradient} blur-3xl pointer-events-none rounded-full`} />
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500" />
-
-              {/* Module Header Badge & Time */}
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-6 relative z-10">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${selectedModule.bgColor} ${selectedModule.accentColor} border ${selectedModule.borderColor}`}>
-                  <Award className="w-3.5 h-3.5" />
-                  {selectedModule.badge}
-                </span>
-
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/50">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  {selectedModule.readTime}
-                </span>
-              </div>
-
-              {/* Main Module Content */}
-              <div className="relative z-10 mb-8">
-                <div className={`w-14 h-14 rounded-2xl ${selectedModule.bgColor} border ${selectedModule.borderColor} flex items-center justify-center ${selectedModule.accentColor} mb-5 shadow-lg`}>
-                  <SelectedIcon className="w-7 h-7" />
-                </div>
-
-                <h3 className="text-2xl sm:text-3xl font-black text-white mb-2 leading-tight">
-                  {selectedModule.title}
-                </h3>
-                
-                <p className="text-rose-300/90 font-medium text-sm sm:text-base mb-4">
-                  {selectedModule.subtitle}
-                </p>
-
-                <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                  {selectedModule.desc}
-                </p>
-              </div>
-
-              {/* Key Bullet Highlights */}
-              <div className="relative z-10 pt-6 border-t border-slate-800/80 mb-8">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <Sparkle className="w-3.5 h-3.5 text-rose-400" />
-                  Co dokładnie wyciągniesz z tej części:
-                </h4>
-
-                <ul className="grid sm:grid-cols-1 gap-3">
-                  {selectedModule.highlights.map((point, index) => (
-                    <li key={index} className="flex items-start gap-3 text-sm text-slate-200">
-                      <div className="mt-0.5 p-1 rounded-full bg-rose-500/20 text-rose-400 shrink-0">
-                        <CheckCircle2 className="w-4 h-4" />
-                      </div>
-                      <span className="leading-snug">{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Included status tag */}
-              <div className="relative z-10 bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-semibold text-slate-300">Dostępne w pełnym pakiecie</span>
-                </div>
-
-                <span className="text-xs font-bold text-rose-400 uppercase tracking-wide">PDF</span>
-              </div>
-
+              {renderModuleDetails(selectedModule)}
             </div>
           </div>
 
