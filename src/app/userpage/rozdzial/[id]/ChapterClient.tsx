@@ -35,10 +35,24 @@ export default function ChapterClient({ pdfSrc, email, isLast }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ partnerEmail, cadenceDays: days }),
       });
-      const data = await res.json().catch(() => ({}));
+            const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Błąd serwera");
-      setMsg("✅ Zaplanowano. Pierwszy rozdział wyślemy przy najbliższym uruchomieniu cron.");
-      setTimeout(() => setOpen(false), 1200);
+
+      if (data?.sendError) {
+        setMsg(
+          "⚠️ Harmonogram zapisany, ale nie udało się wysłać pierwszego maila: " +
+            data.sendError
+        );
+        return;
+      }
+      if (data?.smtpConfigured === false) {
+        setMsg(
+          "⚠️ Harmonogram zapisany, ale SMTP nie jest skonfigurowane — maile nie zostaną wysłane."
+        );
+        return;
+      }
+      setMsg("✅ Pierwszy rozdział wysłany! Kolejne będą przychodzić automatycznie.");
+      setTimeout(() => setOpen(false), 1600);
     } catch (e: any) {
       setMsg(e.message || "Nie udało się zapisać harmonogramu.");
     } finally {

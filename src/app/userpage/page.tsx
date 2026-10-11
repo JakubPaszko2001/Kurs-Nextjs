@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { supabaseAdmin } from "../lib/supabaseAdmin"; // popraw ścieżkę jeśli u Ciebie inna
 import PartnerSendCard from "./PartnerSendCard";
+import { chapters } from "./chapters";
 
 export const dynamic = "force-dynamic";
 
@@ -175,27 +176,6 @@ export default async function Userpage() {
 
   const isPaid = user?.status === "paid";
 
-  const chapters = [
-    {
-      id: 1,
-      title: "Rozdział 1 — Start i fundamenty",
-      desc: "Zrozumienie podstawowych mechanizmów i pierwsze krok w kierunku zmiany.",
-      href: "/userpage/rozdzial/1",
-    },
-    {
-      id: 2,
-      title: "Rozdział 2 — Plan krok po kroku",
-      desc: "Przejrzysta ścieżka postępowania i budowanie prawidłowych nawyków.",
-      href: "/userpage/rozdzial/2",
-    },
-    {
-      id: 3,
-      title: "Rozdział 3 — Scenariusze rozmów i działania",
-      desc: "Gotowe rozwiązania, przykłady wypowiedzi i strategie reagowania.",
-      href: "/userpage/rozdzial/3",
-    },
-  ];
-
   return (
     <div className="relative min-h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
       {/* Glow background */}
@@ -295,9 +275,9 @@ export default async function Userpage() {
               {/* Lista rozdziałów */}
               <div className="mt-8 space-y-3">
                 {chapters.map((chapter) => (
-                  <Link
+                                    <Link
                     key={chapter.id}
-                    href={chapter.href}
+                    href={`/userpage/rozdzial/${chapter.id}`}
                     className="group flex items-center justify-between p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-950/50 hover:bg-slate-900 hover:border-rose-500/40 transition-all duration-200"
                   >
                     <div className="flex items-center gap-4">

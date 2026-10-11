@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
+import {
+  makeTransport,
+  smtpConfigured,
+  sendChapterMail,
+  MAX_CHAPTERS,
+} from "../mailer";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,23 +43,65 @@ export async function POST(req: NextRequest) {
   }
     const days = Math.min(30, Math.max(1, Number(cadenceDays) || 3));
 
-  // Wariant A: pierwszy mail wychodzi przy najbliższym uruchomieniu crona
-  // (next_send_at = teraz), a każdy kolejny dokładnie co `days` dni —
-  // następny termin liczy się w cronie od poprzedniego next_send_at.
-  const { error } = await supabase.from("partner_mailings").insert([
-    {
-      user_email: userEmail,
-      partner_email: partnerEmail,
-      cadence_days: days,
-      current_chapter: 1,
-      next_send_at: new Date().toISOString(), // pierwszy mail wyśle najbliższy cron
-      status: "active",
-    },
-  ]);
+    // Pierwszy mail wysyłamy NATYCHMIAST, a kolejne co `days` dni (cron).
+    const now = new Date();
 
-  if (error) {
-    console.error("[partner-mail:schedule] supabase error", error);
-    return NextResponse.json({ error: "Błąd zapisu do bazy." }, { status: 500 });
-  }
-  return NextResponse.json({ ok: true });
+    const { data: inserted, error } = await supabase
+      .from("partner_mailings")
+      .insert([
+        {
+          user_email: userEmail,
+          partner_email: partnerEmail,
+          cadence_days: days,
+          current_chapter: 1,
+          next_send_at: now.toISOString(), // do kalkulacji kolejnego terminu
+          status: "active",
+        },
+      ])
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      console.error("[partner-mail:schedule] supabase error", error);
+      return NextResponse.json({ error: "Błąd zapisu do bazy." }, { status: 500 });
+    }
+
+    // Natychmiastowa wysyłka pierwszego rozdziału
+    const smtp = smtpConfigured();
+    let sent = false;
+    let sendError: string | null = null;
+
+    try {
+      const tx = makeTransport();
+      await sendChapterMail(tx, partnerEmail, 1, days);
+      sent = true;
+      if (smtp) {
+        console.log("[partner-mail:schedule] wysłano 1. mail natychmiast:", partnerEmail);
+      }
+    } catch (e: any) {
+      sendError = e?.message ?? "błąd wysyłki";
+      console.error("[partner-mail:schedule] send error:", e);
+    }
+
+    // Ustaw kolejny termin (za `days` dni) — kolejne maile obsłuży cron.
+    const next = new Date(now);
+    next.setDate(next.getDate() + days);
+
+    const isLast = MAX_CHAPTERS <= 1;
+    await supabase
+      .from("partner_mailings")
+      .update(
+        isLast
+          ? { status: "finished", current_chapter: 1 }
+          : { current_chapter: 2, next_send_at: next.toISOString() }
+      )
+      .eq("id", inserted.id);
+
+    return NextResponse.json({
+      ok: true,
+      sent,
+      smtpConfigured: smtp,
+      sendError,
+      nextSendAt: isLast ? null : next.toISOString(),
+    });
 }

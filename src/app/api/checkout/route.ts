@@ -1,0 +1,271 @@
+// src/app/api/checkout/route.ts
+// JEDEN endpoint obsługujący obie wersje produktu:
+//   - version = "online"  -> Kurs cyfrowy (Plan odzyskania bliskości)
+//   - version = "book"     -> Książka w wersji fizycznej (druk) + dostawa
+//
+// Dzięki temu /checkout może mieć przełącznik wersji bez osobnych endpointów.
+
+import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+async function getEmailFromCookie(): Promise<string | undefined> {
+  const token = (await cookies()).get("session")?.value;
+  if (!token) return;
+  try {
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(process.env.JWT_SECRET!)
+    );
+    const email = (payload as any)?.email;
+    return typeof email === "string" ? email : undefined;
+  } catch {
+    return;
+  }
+}
+
+function baseUrl(req: NextRequest) {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    req.headers.get("origin") ||
+    "http://localhost:3000"
+  );
+}
+
+const isEmail = (v: unknown) =>
+  typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+export async function POST(req: NextRequest) {
+  try {
+    const secret = process.env.STRIPE_SECRET_KEY;
+    if (!secret) {
+      return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
+    }
+
+    const stripe = new Stripe(secret);
+    const url = baseUrl(req);
+
+    const cookieEmail = await getEmailFromCookie();
+    const body = (await req.json().catch(() => ({}))) as Record<string, any>;
+
+    const version: "online" | "book" =
+      body.version === "book" ? "book" : "online";
+
+    const {
+      email = cookieEmail,
+      name,
+      phone,
+      qty: rawQty,
+      coupon,
+
+      // dostawa (tylko książka)
+      shipping, // "courier" | "inpost"
+      courierRate, // "standard" | "express"
+      addressLine1,
+      city,
+      postalCode,
+      country = "PL",
+      lockerCity,
+      lockerId,
+    } = body;
+
+    if (!isEmail(email)) {
+      return NextResponse.json({ error: "Podaj poprawny adres e-mail." }, { status: 400 });
+    }
+
+    let qty = Number.isFinite(rawQty) ? Number(rawQty) : 1;
+    if (qty < 1) qty = 1;
+    if (qty > 10) qty = 10;
+
+    // ------------------------------------------------------------------
+    // WERSJA ONLINE (kurs cyfrowy)
+    // ------------------------------------------------------------------
+    if (version === "online") {
+      const ORIGINAL = Number(process.env.STRIPE_COURSE_ORIGINAL_PLN ?? "20000");
+      const PRICE = Number(process.env.STRIPE_COURSE_PRICE_PLN ?? "14900");
+      const productName =
+        process.env.STRIPE_COURSE_NAME ||
+        "Plan odzyskania bliskości – pełen dostęp";
+
+      const unitAmount = Number(process.env.STRIPE_COURSE_AMOUNT_PLN ?? PRICE);
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        locale: "pl",
+        success_url: `${url}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${url}/checkout?canceled=1`,
+        line_items: [
+          {
+            price_data: {
+              currency: "pln",
+              unit_amount: unitAmount,
+              product_data: { name: productName },
+            },
+            quantity: qty,
+          },
+        ],
+        customer_email: email || undefined,
+        allow_promotion_codes: true,
+        metadata: {
+          kind: "course",
+          version,
+          user_email: email || "",
+          qty: String(qty),
+          catalog_original: String(ORIGINAL),
+        },
+      });
+
+      return NextResponse.json({ url: session.url }, { status: 200 });
+    }
+
+    // ------------------------------------------------------------------
+    // WERSJA KSIĄŻKA (fizyczna) — z dostawą
+    // ------------------------------------------------------------------
+    if (!name || !String(name).trim()) {
+      return NextResponse.json({ error: "Imię i nazwisko są wymagane." }, { status: 400 });
+    }
+    if (!phone || !/^\+?\d{9,15}$/.test(String(phone))) {
+      return NextResponse.json({ error: "Telefon jest wymagany." }, { status: 400 });
+    }
+    if (shipping === "courier") {
+      if (!addressLine1 || !postalCode || !city) {
+        return NextResponse.json({ error: "Uzupełnij adres dla kuriera." }, { status: 400 });
+      }
+    } else if (shipping === "inpost") {
+      if (!lockerId) {
+        return NextResponse.json({ error: "Brak wybranego paczkomatu." }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json({ error: "Nieprawidłowy typ dostawy." }, { status: 400 });
+    }
+
+    const priceId = process.env.STRIPE_BOOK_PRICE_ID || undefined;
+    const amountFallback = Number(process.env.STRIPE_BOOK_AMOUNT_PLN || "9900");
+    const productName = process.env.STRIPE_BOOK_NAME || "Książka w okładce";
+
+    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = priceId
+      ? [{ price: priceId, quantity: qty }]
+      : [
+          {
+            quantity: qty,
+            price_data: {
+              currency: "pln",
+              unit_amount: amountFallback,
+              product_data: { name: productName },
+            },
+          },
+        ];
+
+    const courierStd = Number(process.env.STRIPE_SHIP_COURIER_STANDARD_PLN ?? "0");
+    const courierExp = Number(process.env.STRIPE_SHIP_COURIER_EXPRESS_PLN ?? "1900");
+    const inpostPrice = Number(process.env.STRIPE_SHIP_INPOST_PLN ?? "1200");
+
+    let shipping_address_collection:
+      | Stripe.Checkout.SessionCreateParams.ShippingAddressCollection
+      | undefined;
+    let shipping_options:
+      | Stripe.Checkout.SessionCreateParams.ShippingOption[]
+      | undefined;
+
+    const metadata: Record<string, string> = {
+      kind: "physical_book",
+      version,
+      user_email: String(email),
+      shipping_method: shipping,
+      qty: String(qty),
+    };
+
+    if (shipping === "inpost") {
+      metadata.inpost_locker = String(lockerId);
+      if (lockerCity) metadata.inpost_city = String(lockerCity);
+
+      shipping_address_collection = { allowed_countries: ["PL"] };
+      shipping_options = [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            display_name: "Paczkomat InPost",
+            fixed_amount: { currency: "pln", amount: inpostPrice },
+          },
+        },
+      ];
+    } else {
+      shipping_address_collection = {
+        allowed_countries: [
+          "PL", "DE", "CZ", "SK", "AT", "NL", "BE", "GB", "FR", "IE", "DK", "SE", "NO", "US",
+        ],
+      };
+      const rate =
+        courierRate === "express"
+          ? {
+              display_name: "Kurier – ekspres (1–2 dni)",
+              fixed_amount: { currency: "pln", amount: courierExp },
+            }
+          : {
+              display_name: "Kurier – standard (3–5 dni)",
+              fixed_amount: { currency: "pln", amount: courierStd },
+            };
+      shipping_options = [{ shipping_rate_data: { type: "fixed_amount", ...rate } }];
+    }
+
+    // Customer + prefill
+    const found = await stripe.customers.list({ email, limit: 1 });
+    const customer =
+      found.data[0] ??
+      (await stripe.customers.create({ email, name, phone }));
+
+    const customerId = customer.id;
+
+    const toUpdate: Stripe.CustomerUpdateParams = {};
+    if (customer.name !== name) toUpdate.name = name;
+    if (customer.phone !== phone) toUpdate.phone = phone;
+    if (Object.keys(toUpdate).length) {
+      await stripe.customers.update(customerId, toUpdate);
+    }
+
+    if (shipping === "courier") {
+      await stripe.customers.update(customerId, {
+        shipping: {
+          name,
+          phone,
+          address: {
+            line1: addressLine1,
+            city,
+            postal_code: postalCode,
+            country,
+          },
+        },
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      locale: "pl",
+      line_items,
+      success_url: `${url}/book/success`,
+      cancel_url: `${url}/checkout?canceled=1`,
+      customer: customerId,
+      customer_update: { address: "auto", shipping: "auto", name: "auto" },
+      shipping_address_collection,
+      shipping_options,
+      phone_number_collection: { enabled: true },
+      billing_address_collection: "required",
+      allow_promotion_codes: true,
+      metadata,
+    });
+
+    return NextResponse.json({ url: session.url }, { status: 200 });
+  } catch (err: any) {
+    console.error("[checkout] error:", err);
+    return NextResponse.json(
+      { error: err?.message || "Stripe error" },
+      { status: 400 }
+    );
+  }
+}

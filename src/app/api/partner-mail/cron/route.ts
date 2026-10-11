@@ -1,9 +1,13 @@
 // src/app/api/partner-mail/cron/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import nodemailer, { type Transporter, type SendMailOptions, type SentMessageInfo } from "nodemailer";
-import fs from "fs";
-import path from "path";
+import { type Transporter } from "nodemailer";
+import {
+  makeTransport,
+  smtpConfigured as isSmtpConfigured,
+  sendChapterMail,
+  MAX_CHAPTERS,
+} from "../mailer";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,39 +16,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const MAX_CHAPTERS = 3;
-
-function makeTransport(): Transporter {
-  if (!process.env.SMTP_HOST) {
-    return nodemailer.createTransport({
-      streamTransport: true,
-      newline: "unix",
-      buffer: true,
-    }) as unknown as Transporter;
-  }
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST!,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: Number(process.env.SMTP_PORT || 587) === 465,
-    auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER!, pass: process.env.SMTP_PASS! }
-      : undefined,
-  });
-}
-
-function chapterAttachment(n: number) {
-  const p = path.join(process.cwd(), "public", "protected", "chapters", `${n}.pdf`);
-  if (!fs.existsSync(p)) return null;
-  return { filename: `rozdzial-${n}.pdf`, content: fs.readFileSync(p) };
-}
-
-// 👇 helper: promise wrapper na callbackową wersję sendMail
-function sendMailAsync(tx: Transporter, mail: SendMailOptions) {
-  return new Promise<SentMessageInfo>((resolve, reject) => {
-    tx.sendMail(mail, (err, info) => (err ? reject(err) : resolve(info)));
-  });
-}
 
 export async function GET(req: NextRequest) {
   // Autoryzacja: albo ?key=CRON_SECRET, albo nagłówek
@@ -97,37 +68,19 @@ export async function GET(req: NextRequest) {
 
   if (!rows?.length) return NextResponse.json({ processed: 0 });
 
-  const tx: Transporter = makeTransport();
+    const tx: Transporter = makeTransport();
+  const smtpConfigured = isSmtpConfigured();
   let processed = 0;
 
   for (const row of rows) {
     const n = Math.max(1, Number(row.current_chapter || 1));
-    const attach = chapterAttachment(n);
-    const subject = `Rozdział ${n} — Wasz plan krok po kroku`;
-    const text =
-`Cześć!
-
-Partner poprosił o wysyłkę rozdziałów przewodnika co ${row.cadence_days} dni.
-W załączniku Rozdział ${n}. Kolejny przyjdzie automatycznie.
-
-Miłej lektury!`;
 
     try {
-      const info = await sendMailAsync(tx, {
-        from: process.env.MAIL_FROM || `Przewodnik <noreply@localhost>`,
-        to: row.partner_email,
-        subject,
-        text,
-        attachments: attach ? [attach] : undefined,
-      });
-
-      if ((tx as any).options?.streamTransport) {
-        console.log("=== MAIL PREVIEW (not sent) ===\n" + (info as any).message?.toString?.());
-      }
+      await sendChapterMail(tx, row.partner_email, n, Number(row.cadence_days || 3));
 
       processed += 1;
 
-            if (n >= MAX_CHAPTERS) {
+      if (n >= MAX_CHAPTERS) {
         await supabase
           .from("partner_mailings")
           .update({ status: "finished" })
@@ -159,5 +112,11 @@ Miłej lektury!`;
     }
   }
 
-  return NextResponse.json({ processed });
+    return NextResponse.json({
+    processed,
+    smtpConfigured,
+    warning: smtpConfigured
+      ? undefined
+      : "SMTP nie jest skonfigurowane — maile NIE zostały wysłane (tylko podgląd w logach). Ustaw SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM.",
+  });
 }
