@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 
@@ -146,6 +146,100 @@ const formatPLGroups = (raw: string) => {
     [a, b, c].filter(Boolean).join(" ")
   );
 };
+
+type Locker = { id: string; address: string };
+type InpostApi = { cities: string[]; data: Record<string, Locker[]> };
+
+function InpostPicker({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (city: string, lockerId: string) => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [api, setApi] = useState<InpostApi | null>(null);
+  const [city, setCity] = useState("");
+  const [locker, setLocker] = useState(value || "");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/inpost/data", { cache: "no-store" });
+        const json: InpostApi = await res.json();
+        if (!res.ok) throw new Error((json as any)?.error || "Fetch error");
+        if (!cancelled) setApi(json);
+      } catch (e: any) {
+        if (!cancelled)
+          setError(e?.message || "Nie udało się pobrać punktów InPost.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const lockers: Locker[] = city && api ? api.data[city] || [] : [];
+
+  const inputCls =
+    "mt-1 w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2.5 text-xs focus:outline-none focus:border-rose-500/60 disabled:opacity-50";
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Miasto
+        </label>
+        <select
+          className={inputCls}
+          value={city}
+          onChange={(e) => {
+            setCity(e.target.value);
+            setLocker("");
+            onChange("", "");
+          }}
+        >
+          <option value="">{loading ? "Ładowanie…" : "Wybierz miasto…"}</option>
+          {api?.cities.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Paczkomat
+        </label>
+        <select
+          className={inputCls}
+          value={locker}
+          disabled={!city}
+          onChange={(e) => {
+            const l = e.target.value;
+            setLocker(l);
+            if (city && l) onChange(city, l);
+          }}
+        >
+          <option value="">{city ? "Wybierz paczkomat…" : "Najpierw miasto"}</option>
+          {lockers.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.id} — {l.address}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && <p className="text-xs text-rose-400">{error}</p>}
+    </div>
+  );
+}
 
 export default function CheckoutClient({ userEmail }: Props) {
   const [version, setVersion] = useState<Version>("online");
@@ -693,20 +787,21 @@ export default function CheckoutClient({ userEmail }: Props) {
                           <span className="font-bold text-white text-xs">{formatPLN(INPOST)}</span>
                         </label>
 
-                        {shipping === "inpost" && (
-                          <div className="ml-2 pl-3 border-l border-slate-800 pt-1 space-y-2">
-                            <input
-                              value={lockerCity}
-                              onChange={(e) => setLockerCity(e.target.value)}
-                              placeholder="Miasto paczkomatu"
-                              className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-3 py-2.5 text-xs focus:outline-none focus:border-rose-500/60"
-                            />
-                            <input
+                                                {shipping === "inpost" && (
+                          <div className="ml-2 pl-3 border-l border-slate-800 pt-1">
+                            <InpostPicker
                               value={lockerId}
-                              onChange={(e) => setLockerId(e.target.value)}
-                              placeholder="Kod paczkomatu (np. KRA010)"
-                              className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-3 py-2.5 text-xs focus:outline-none focus:border-rose-500/60"
+                              onChange={(cityVal, lockerVal) => {
+                                setLockerCity(cityVal);
+                                setLockerId(lockerVal);
+                              }}
                             />
+                            {lockerId && (
+                              <p className="mt-1.5 text-[11px] text-slate-400">
+                                Wybrano: <span className="text-white font-semibold">{lockerId}</span>
+                                {lockerCity ? ` (${lockerCity})` : ""}
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
