@@ -117,11 +117,14 @@ export async function POST(req: NextRequest) {
       | Stripe.Checkout.SessionCreateParams.ShippingOption[]
       | undefined;
 
-    const metadata: Record<string, string> = {
+        const metadata: Record<string, string> = {
       kind: "physical_book",
       user_email: String(email),
       shipping_method: shipping,
       qty: String(qty),
+      // Dane wpisane w formularzu — webhook zapisze je do book_orders
+      customer_name: String(name || ""),
+      customer_phone: String(phone || ""),
     };
 
     if (shipping === "inpost") {
@@ -153,6 +156,12 @@ export async function POST(req: NextRequest) {
               fixed_amount: { currency: "pln", amount: courierStd },
             };
       shipping_options = [{ shipping_rate_data: { type: "fixed_amount", ...rate } }];
+
+      // Adres kuriera do metadata (źródło prawdy dla webhooka)
+      metadata.address_line1 = String(addressLine1 || "");
+      metadata.address_city = String(city || "");
+      metadata.address_postal_code = String(postalCode || "");
+      metadata.address_country = String(country || "PL");
     }
 
     // ===== Customer i prefill =====

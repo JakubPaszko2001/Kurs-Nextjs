@@ -351,8 +351,39 @@ export default function CheckoutClient({ userEmail }: Props) {
       throw new Error(data?.error ?? "Nie udało się rozpocząć płatności.");
     }
 
-    const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(() => ({}));
     if (!data?.url) throw new Error("Brak URL do płatności z serwera.");
+
+    // Dla książki zapisujemy dane z formularza do bazy (status pending),
+    // zanim przejdziemy do Stripe. Webhook zmieni później status na "paid".
+    if (isBook && data?.sessionId) {
+      try {
+        await fetch("/api/book/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            version: "book",
+            email: emailToUse ?? "",
+            name,
+            phone: toE164PL(phone),
+            qty,
+            shipping,
+            courierRate,
+            addressLine1,
+            postalCode,
+            city,
+            country: "PL",
+            lockerCity,
+            lockerId,
+            stripeSessionId: data.sessionId,
+          }),
+        });
+      } catch (e) {
+        // Nie blokujemy płatności, jeśli zapis się nie udał
+        console.error("[checkout] zapis zamówienia nieudany:", e);
+      }
+    }
+
     window.location.href = data.url; // Stripe Checkout
   }
 

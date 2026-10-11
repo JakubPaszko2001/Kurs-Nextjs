@@ -179,6 +179,9 @@ export async function POST(req: NextRequest) {
       user_email: String(email),
       shipping_method: shipping,
       qty: String(qty),
+      // Dane wpisane w formularzu — webhook zapisze je do book_orders
+      customer_name: String(name || ""),
+      customer_phone: String(phone || ""),
     };
 
     if (shipping === "inpost") {
@@ -212,6 +215,12 @@ export async function POST(req: NextRequest) {
               fixed_amount: { currency: "pln", amount: courierStd },
             };
       shipping_options = [{ shipping_rate_data: { type: "fixed_amount", ...rate } }];
+
+      // Adres kuriera do metadata (źródło prawdy dla webhooka)
+      metadata.address_line1 = String(addressLine1 || "");
+      metadata.address_city = String(city || "");
+      metadata.address_postal_code = String(postalCode || "");
+      metadata.address_country = String(country || "PL");
     }
 
     // Customer + prefill
@@ -260,7 +269,8 @@ export async function POST(req: NextRequest) {
       metadata,
     });
 
-    return NextResponse.json({ url: session.url }, { status: 200 });
+    // Zwracamy też session.id — klient zapisze nim wstępne zamówienie.
+    return NextResponse.json({ url: session.url, sessionId: session.id }, { status: 200 });
   } catch (err: any) {
     console.error("[checkout] error:", err);
     return NextResponse.json(
