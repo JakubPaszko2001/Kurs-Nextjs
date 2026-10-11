@@ -1,9 +1,12 @@
-// src/app/userpage/page.tsx
+                                                                                        // src/app/userpage/page.tsx
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+
+
 import { supabaseAdmin } from "../lib/supabaseAdmin"; // popraw ścieżkę jeśli u Ciebie inna
+import PartnerSendCard from "./PartnerSendCard";
 
 export const dynamic = "force-dynamic";
 
@@ -269,8 +272,11 @@ export default async function Userpage() {
             </div>
           </div>
         ) : (
-          /* AKTYWNY DOSTĘP */
+                    /* AKTYWNY DOSTĘP */
           <div className="mt-8 space-y-6">
+            {/* Sekcja: wyślij dla drugiej połówki (styl „Twoje produkty”) — powyżej „Pełen Dostęp” */}
+            <PartnerSendCard />
+
             <div className="relative overflow-hidden rounded-3xl border border-rose-500/20 bg-slate-900/60 p-6 sm:p-8 backdrop-blur-xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -311,8 +317,8 @@ export default async function Userpage() {
                     <div className="w-8 h-8 rounded-full bg-slate-900 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center text-slate-500 transition-all shrink-0 ml-2">
                       <ChevronRightIcon className="w-4 h-4" />
                     </div>
-                  </Link>
-                ))}
+                                    </Link>
+                                ))}
               </div>
             </div>
           </div>

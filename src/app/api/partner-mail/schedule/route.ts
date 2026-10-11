@@ -35,15 +35,18 @@ export async function POST(req: NextRequest) {
   if (!partnerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail)) {
     return NextResponse.json({ error: "Podaj poprawny e-mail partnera." }, { status: 400 });
   }
-  const days = Math.min(30, Math.max(1, Number(cadenceDays) || 3));
+    const days = Math.min(30, Math.max(1, Number(cadenceDays) || 3));
 
+  // Wariant A: pierwszy mail wychodzi przy najbliższym uruchomieniu crona
+  // (next_send_at = teraz), a każdy kolejny dokładnie co `days` dni —
+  // następny termin liczy się w cronie od poprzedniego next_send_at.
   const { error } = await supabase.from("partner_mailings").insert([
     {
       user_email: userEmail,
       partner_email: partnerEmail,
       cadence_days: days,
       current_chapter: 1,
-      next_send_at: new Date().toISOString(), // pierwszy mail wyśle cron
+      next_send_at: new Date().toISOString(), // pierwszy mail wyśle najbliższy cron
       status: "active",
     },
   ]);

@@ -47,8 +47,16 @@ function sendMailAsync(tx: Transporter, mail: SendMailOptions) {
 }
 
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-  if (!key || key !== process.env.CRON_SECRET) {
+  // Autoryzacja: albo ?key=CRON_SECRET, albo nagłówek
+  // Authorization: Bearer CRON_SECRET (Vercel Cron wysyła go automatycznie).
+  const queryKey = req.nextUrl.searchParams.get("key");
+  const authHeader = req.headers.get("authorization");
+  const bearerKey = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  const provided = queryKey || bearerKey;
+  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -57,7 +65,15 @@ export async function GET(req: NextRequest) {
   const fastMinutes = Math.max(1, Number(req.nextUrl.searchParams.get("minutes") || "1"));
   const force = req.nextUrl.searchParams.get("force") === "1";
 
-  const now = new Date().toISOString();
+    // Okno tolerancji: cron może odpalić się rano, a termin wypadać później
+  // tego samego dnia. Wybieramy też rekordy, których termin minie w ciągu
+  // najbliższych `TOLERANCE_MS`, żeby mail nie czekał do następnej doby.
+  // Na Vercel Hobby (cron 1x/dzień) sensowne jest ~24h; na Pro (co godzinę)
+  // wystarczy ~2h.
+  const TOLERANCE_MS = Number(
+    process.env.CRON_TOLERANCE_HOURS ?? "24"
+  ) * 60 * 60 * 1000;
+  const threshold = new Date(Date.now() + TOLERANCE_MS).toISOString();
 
   let query = supabase
     .from("partner_mailings")
@@ -65,10 +81,14 @@ export async function GET(req: NextRequest) {
     .eq("status", "active");
 
   if (!force) {
-    query = query.lte("next_send_at", now);
+    // rekordy, których termin już minął LUB minie w oknie tolerancji
+    query = query.lte("next_send_at", threshold);
   }
 
-  const { data: rows, error } = await query.limit(50);
+  // najdawniej zaległe mają priorytet
+  query = query.order("next_send_at", { ascending: true });
+
+  const { data: rows, error } = await query.limit(200);
 
   if (error) {
     console.error("[partner-mail:cron] select error", error);
@@ -107,15 +127,23 @@ Miłej lektury!`;
 
       processed += 1;
 
-      if (n >= MAX_CHAPTERS) {
+            if (n >= MAX_CHAPTERS) {
         await supabase
           .from("partner_mailings")
           .update({ status: "finished" })
           .eq("id", row.id);
       } else {
-        const next = new Date();
-        if (fast) next.setMinutes(next.getMinutes() + fastMinutes);
-        else next.setDate(next.getDate() + Number(row.cadence_days || 3));
+        // Następny termin liczymy od POPRZEDNIEGO zaplanowanego terminu
+        // (a nie od momentu odpalenia crona) — to eliminuje dryf i sprawia,
+        // że każdy mail leci dokładnie co `cadence_days` dni, o stałej godzinie.
+        const base = row.next_send_at ? new Date(row.next_send_at) : new Date();
+        const next = new Date(base);
+        if (fast) {
+          // tryb dev: przyspieszamy, ale zachowujemy kolejność
+          next.setMinutes(next.getMinutes() + fastMinutes);
+        } else {
+          next.setDate(next.getDate() + Number(row.cadence_days || 3));
+        }
 
         await supabase
           .from("partner_mailings")

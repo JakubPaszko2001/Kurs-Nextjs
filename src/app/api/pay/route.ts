@@ -31,17 +31,23 @@ export async function POST(req: NextRequest) {
   }
 
   const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+  const stripe = new Stripe(stripeKey);
 
+  const unitAmount = Number(body.subtotal);
+  if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+    return NextResponse.json({ error: "Nieprawidłowa kwota zamówienia." }, { status: 400 });
+  }
+
+  try {
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    success_url: `${origin}/success`,
+    success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/checkout?canceled=1`,
     line_items: [
       {
         price_data: {
           currency: "pln",
-          unit_amount: body.subtotal, // grosze
+            unit_amount: unitAmount, // grosze
           product_data: { name: "Plan odzyskania bliskości – pełen dostęp" },
         },
         quantity: body.qty ?? 1,
@@ -52,5 +58,10 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ url: session.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Stripe error";
+    console.error("[pay] stripe checkout error:", message);
+    return NextResponse.json({ error: message }, { status: 400 });
+}
 }
 
