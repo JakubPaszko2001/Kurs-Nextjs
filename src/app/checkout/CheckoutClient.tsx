@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
+import { IMMEDIATE_ACCESS_CONSENT_TEXT } from "../lib/consents";
+
+
+
+
 
 type Props = { userEmail?: string };
 
@@ -103,161 +108,37 @@ const TagIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 const CloudIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
     <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6 19h11.5Z" />
     <path d="m9 13 3 3 3-3" />
     <path d="M12 16V9" />
   </svg>
 );
 
-const BookIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-  </svg>
-);
-
-type Version = "online" | "book";
-
+// Jeden produkt, jedna licencja – cena katalogowa (przekreślona) i aktualna.
 const ONLINE_ORIGINAL = 20000; // 200,00 zł
 const ONLINE_PRICE = 14900; // 149,00 zł
 
-const BOOK_ORIGINAL = Number(process.env.NEXT_PUBLIC_BOOK_ORIGINAL_PLN ?? "20000");
-const BOOK_PRICE = Number(process.env.NEXT_PUBLIC_BOOK_PRICE_PLN ?? "9900");
-
-const COURIER_STD = Number(process.env.NEXT_PUBLIC_SHIP_COURIER_STANDARD_PLN ?? "0");
-const COURIER_EXP = Number(process.env.NEXT_PUBLIC_SHIP_COURIER_EXPRESS_PLN ?? "1900");
-const INPOST = Number(process.env.NEXT_PUBLIC_SHIP_INPOST_PLN ?? "1200");
 const formatPLN = (v: number) =>
   (v / 100).toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
 
-// telefon -> E164 PL
-const toE164PL = (raw: string) => {
-  let d = (raw || "").replace(/\D/g, "");
-  if (!d) return "";
-  if (d.startsWith("0048")) d = d.slice(4);
-  if (d.startsWith("48")) d = d.slice(2);
-  if (d.length !== 9) return "";
-  return `+48${d}`;
-};
-const formatPLGroups = (raw: string) => {
-  const d = (raw || "").replace(/\D/g, "").slice(0, 9);
-  return d.replace(/(\d{3})(\d{0,3})(\d{0,3}).*/, (_, a, b, c) =>
-    [a, b, c].filter(Boolean).join(" ")
-  );
-};
-
-type Locker = { id: string; address: string };
-type InpostApi = { cities: string[]; data: Record<string, Locker[]> };
-
-function InpostPicker({
-  value,
-  onChange,
-}: {
-  value?: string;
-  onChange: (city: string, lockerId: string) => void;
-}) {
-  const [loading, setLoading] = useState(true);
-  const [api, setApi] = useState<InpostApi | null>(null);
-  const [city, setCity] = useState("");
-  const [locker, setLocker] = useState(value || "");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/inpost/data", { cache: "no-store" });
-        const json: InpostApi = await res.json();
-        if (!res.ok) throw new Error((json as any)?.error || "Fetch error");
-        if (!cancelled) setApi(json);
-      } catch (e: any) {
-        if (!cancelled)
-          setError(e?.message || "Nie udało się pobrać punktów InPost.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const lockers: Locker[] = city && api ? api.data[city] || [] : [];
-
-  const inputCls =
-    "mt-1 w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2.5 text-xs focus:outline-none focus:border-rose-500/60 disabled:opacity-50";
-
-  return (
-    <div className="space-y-2">
-      <div>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Miasto
-        </label>
-        <select
-          className={inputCls}
-          value={city}
-          onChange={(e) => {
-            setCity(e.target.value);
-            setLocker("");
-            onChange("", "");
-          }}
-        >
-          <option value="">{loading ? "Ładowanie…" : "Wybierz miasto…"}</option>
-          {api?.cities.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Paczkomat
-        </label>
-        <select
-          className={inputCls}
-          value={locker}
-          disabled={!city}
-          onChange={(e) => {
-            const l = e.target.value;
-            setLocker(l);
-            if (city && l) onChange(city, l);
-          }}
-        >
-          <option value="">{city ? "Wybierz paczkomat…" : "Najpierw miasto"}</option>
-          {lockers.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.id} — {l.address}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {error && <p className="text-xs text-rose-400">{error}</p>}
-    </div>
-  );
-}
-
 export default function CheckoutClient({ userEmail }: Props) {
-  const [version, setVersion] = useState<Version>("online");
-  const [qty, setQty] = useState(1);
   const [coupon, setCoupon] = useState("");
   const [processing, setProcessing] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
 
-  // Dostawa (używane tylko dla wersji "book")
-  const [shipping, setShipping] = useState<"courier" | "inpost">("courier");
-  const [courierRate, setCourierRate] = useState<"standard" | "express">("standard");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [addressLine1, setAddressLine1] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [city, setCity] = useState("");
-  const [lockerCity, setLockerCity] = useState("");
-  const [lockerId, setLockerId] = useState("");
+  // Zgody wymagane przed płatnością (druga MUSI być niezaznaczona domyślnie)
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedImmediate, setAcceptedImmediate] = useState(false);
 
   // Modal auth
   const [showAuth, setShowAuth] = useState(false);
@@ -269,81 +150,33 @@ export default function CheckoutClient({ userEmail }: Props) {
   const [authIsError, setAuthIsError] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
-    const isBook = version === "book";
-
-  const shippingCost = useMemo(() => {
-    if (!isBook) return 0;
-    if (shipping === "inpost") return INPOST;
-    return courierRate === "express" ? COURIER_EXP : COURIER_STD;
-  }, [isBook, shipping, courierRate]);
-
-  const originalPerItem = isBook ? BOOK_ORIGINAL : ONLINE_ORIGINAL;
-  const pricePerItem = isBook ? BOOK_PRICE : ONLINE_PRICE;
-
-  const catalogSubtotal = originalPerItem * qty;
-  const subtotal = pricePerItem * qty;
-  const baseDiscountPerItem = originalPerItem - pricePerItem;
-  const baseDiscountTotal = baseDiscountPerItem * qty;
+  const baseDiscountPerItem = ONLINE_ORIGINAL - ONLINE_PRICE;
 
   const discount = useMemo(() => {
-    // kupon naliczamy tylko dla wersji online
-    if (!isBook && coupon.trim().toUpperCase() === "KODRABATOWY") {
-      return Math.round(subtotal * 0.1);
+    if (coupon.trim().toUpperCase() === "KODRABATOWY") {
+      return Math.round(ONLINE_PRICE * 0.1);
     }
     return 0;
-  }, [coupon, subtotal, isBook]);
+  }, [coupon]);
 
-  const total = Math.max(0, subtotal - discount) + shippingCost;
-  const baseDiscountPct = ((baseDiscountPerItem / originalPerItem) * 100).toFixed(1);
+  const total = Math.max(0, ONLINE_PRICE - discount);
+  const baseDiscountPct = ((baseDiscountPerItem / ONLINE_ORIGINAL) * 100).toFixed(1);
 
-  function validateBook(): string | null {
-    if (!name.trim()) return "Podaj imię i nazwisko.";
-    if (!toE164PL(phone)) return "Podaj poprawny numer telefonu (9 cyfr).";
-    if (shipping === "courier" && (!addressLine1 || !postalCode || !city)) {
-      return "Uzupełnij adres dla kuriera.";
-    }
-    if (shipping === "inpost" && !lockerId) return "Wybierz Paczkomat InPost.";
-    return null;
-  }
-
-    // Tworzenie sesji Stripe + przekierowanie
+  // Tworzenie sesji Stripe + przekierowanie
   async function createCheckoutSession(emailToUse: string) {
-    if (isBook) {
-      const v = validateBook();
-      if (v) {
-        setFormErr(v);
-        throw new Error(v);
-      }
-    }
     setFormErr(null);
 
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        isBook
-          ? {
-              version: "book",
-              email: emailToUse ?? "",
-              name,
-              phone: toE164PL(phone),
-              qty,
-              shipping,
-              courierRate,
-              addressLine1,
-              postalCode,
-              city,
-              country: "PL",
-              lockerCity,
-              lockerId,
-            }
-          : {
-              version: "online",
-              email: emailToUse ?? "",
-              qty,
-              coupon: coupon.trim(),
-            }
-      ),
+      body: JSON.stringify({
+        version: "online",
+        email: emailToUse ?? "",
+        qty: 1,
+        coupon: coupon.trim(),
+        acceptedTerms,
+        acceptedImmediate,
+      }),
     });
 
     if (!res.ok) {
@@ -351,38 +184,8 @@ export default function CheckoutClient({ userEmail }: Props) {
       throw new Error(data?.error ?? "Nie udało się rozpocząć płatności.");
     }
 
-        const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({}));
     if (!data?.url) throw new Error("Brak URL do płatności z serwera.");
-
-    // Dla książki zapisujemy dane z formularza do bazy (status pending),
-    // zanim przejdziemy do Stripe. Webhook zmieni później status na "paid".
-    if (isBook && data?.sessionId) {
-      try {
-        await fetch("/api/book/order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            version: "book",
-            email: emailToUse ?? "",
-            name,
-            phone: toE164PL(phone),
-            qty,
-            shipping,
-            courierRate,
-            addressLine1,
-            postalCode,
-            city,
-            country: "PL",
-            lockerCity,
-            lockerId,
-            stripeSessionId: data.sessionId,
-          }),
-        });
-      } catch (e) {
-        // Nie blokujemy płatności, jeśli zapis się nie udał
-        console.error("[checkout] zapis zamówienia nieudany:", e);
-      }
-    }
 
     window.location.href = data.url; // Stripe Checkout
   }
@@ -393,7 +196,7 @@ export default function CheckoutClient({ userEmail }: Props) {
       setShowAuth(true);
       return;
     }
-        try {
+    try {
       setProcessing(true);
       await createCheckoutSession(userEmail);
     } catch (e: any) {
@@ -503,121 +306,40 @@ export default function CheckoutClient({ userEmail }: Props) {
         </div>
       </header>
 
-            {/* Główny układ koszyka */}
+      {/* Główny układ */}
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 md:py-12 relative z-10">
-        {/* Wybór wersji produktu */}
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight text-center">
-            Wybierz wersję przewodnika
-          </h1>
-          <p className="text-slate-400 text-sm mt-2 text-center">
-            Ten sam przewodnik — dostępny od razu online lub w wydaniu drukowanym.
-          </p>
-
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
-            <button
-              type="button"
-              onClick={() => setVersion("online")}
-              className={`relative text-left p-5 rounded-3xl border transition-all ${
-                version === "online"
-                  ? "border-rose-500/60 bg-rose-500/5 shadow-lg shadow-rose-500/10"
-                  : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-11 h-11 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center justify-center text-rose-400">
-                  <CloudIcon className="w-5 h-5" />
-                </div>
-                {version === "online" && (
-                  <span className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center">
-                    <CheckIcon className="w-3.5 h-3.5" />
-                  </span>
-                )}
-              </div>
-              <h3 className="mt-3 text-base font-black text-white">Wersja online</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Natychmiastowy dostęp cyfrowy. Bez wysyłki.
-              </p>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-xl font-black text-white">{formatPLN(ONLINE_PRICE)}</span>
-                <span className="text-xs line-through text-slate-500">{formatPLN(ONLINE_ORIGINAL)}</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setVersion("book")}
-              className={`relative text-left p-5 rounded-3xl border transition-all ${
-                version === "book"
-                  ? "border-rose-500/60 bg-rose-500/5 shadow-lg shadow-rose-500/10"
-                  : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-11 h-11 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center justify-center text-rose-400">
-                  <BookIcon className="w-5 h-5" />
-                </div>
-                {version === "book" && (
-                  <span className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center">
-                    <CheckIcon className="w-3.5 h-3.5" />
-                  </span>
-                )}
-              </div>
-              <h3 className="mt-3 text-base font-black text-white">Książka w druku</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Egzemplarz fizyczny + dostawa kurierem/Paczkomat.
-              </p>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-xl font-black text-white">{formatPLN(BOOK_PRICE)}</span>
-                <span className="text-xs line-through text-slate-500">{formatPLN(BOOK_ORIGINAL)}</span>
-              </div>
-            </button>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-          
           {/* Lewa strona: Podgląd i informacje o produkcie */}
           <div className="lg:col-span-3 space-y-6">
-            
             {/* Główny kontener podglądu */}
             <div className="relative overflow-hidden rounded-3xl border border-rose-500/20 bg-slate-900/60 p-8 text-center backdrop-blur-xl shadow-xl flex flex-col items-center justify-center min-h-[280px]">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-rose-500/10 blur-3xl pointer-events-none rounded-full" />
-              
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-wider mb-4">
-                {isBook ? "Wydanie drukowane" : "Cyfrowy przewodnik"}
-              </span>
 
-              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight max-w-md">
-                Plan odzyskania bliskości –{" "}
-                {isBook ? "książka w okładce" : "pełen dostęp"}
-              </h2>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-wider mb-4">
+                <CloudIcon className="w-4 h-4" />
+                Dostęp online
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight max-w-md">
+                Plan odzyskania bliskości – pełen dostęp online
+              </h1>
 
               <p className="mt-2 text-slate-400 text-sm max-w-sm">
-                {isBook
-                  ? "Egzemplarz fizyczny wysyłamy kurierem lub do Paczkomatu. Realizacja 1–3 dni robocze."
-                  : "Natychmiastowy dostęp po opłaceniu. Dostęp na urządzenia mobilne i komputery."}
+                Natychmiastowy dostęp po opłaceniu. Dostęp na urządzenia mobilne i
+                komputery. Jedna licencja – dostęp prywatny.
               </p>
             </div>
 
             {/* Opis zawartości */}
             <div className="rounded-3xl border border-slate-800/80 bg-slate-900/50 p-6 sm:p-8 backdrop-blur-sm space-y-4">
-              <h3 className="text-lg font-extrabold text-white">Co zawiera pakiet?</h3>
+              <h2 className="text-lg font-extrabold text-white">Co zawiera pakiet?</h2>
               <ul className="space-y-3 text-sm text-slate-300">
-                {(isBook
-                  ? [
-                      "Wydanie drukowane przewodnika w twardej okładce",
-                      "Dostawa kurierem lub do Paczkomatu InPost",
-                      "Aktualizacje w przyszłości bez dopłat",
-                      "14 dni gwarancji satysfakcji",
-                    ]
-                  : [
-                      "Pełen dostęp do przewodnika oraz materiałów bonusowych",
-                      "Plan krok po kroku z konkretnymi scenariuszami działań",
-                      "Natychmiastowy dostęp na urządzenia mobilne i komputery",
-                      "Darmowe aktualizacje w przyszłości bez dodatkowych opłat",
-                    ]
-                ).map((item, idx) => (
+                {[
+                  "Pełen dostęp do przewodnika oraz materiałów bonusowych",
+                  "Plan krok po kroku z konkretnymi scenariuszami działań",
+                  "Natychmiastowy dostęp na urządzenia mobilne i komputery",
+                  "Darmowe aktualizacje w przyszłości bez dodatkowych opłat",
+                ].map((item, idx) => (
                   <li key={idx} className="flex items-start gap-3">
                     <div className="p-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0 mt-0.5">
                       <CheckIcon className="w-3.5 h-3.5" />
@@ -635,12 +357,10 @@ export default function CheckoutClient({ userEmail }: Props) {
               <div className="absolute -inset-1 bg-gradient-to-r from-rose-500/30 via-pink-500/20 to-purple-600/30 rounded-[32px] blur-xl opacity-50" />
 
               <div className="relative rounded-3xl border border-rose-500/30 bg-slate-900/90 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl space-y-6">
-                                <div>
-                  <h1 className="text-xl font-extrabold text-white">Podsumowanie zamówienia</h1>
+                <div>
+                  <h2 className="text-xl font-extrabold text-white">Podsumowanie zamówienia</h2>
                   <p className="text-xs text-slate-400 mt-1">
-                    {isBook
-                      ? "Wersja drukowana • Cena + dostawa"
-                      : "Wersja online • Jednorazowa opłata"}
+                    Wersja online • Jednorazowa opłata • 1 licencja
                   </p>
                 </div>
 
@@ -648,8 +368,8 @@ export default function CheckoutClient({ userEmail }: Props) {
                 <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
                   <div>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-black text-white">{formatPLN(pricePerItem)}</span>
-                      <span className="text-sm line-through text-slate-500">{formatPLN(originalPerItem)}</span>
+                      <span className="text-3xl font-black text-white">{formatPLN(ONLINE_PRICE)}</span>
+                      <span className="text-sm line-through text-slate-500">{formatPLN(ONLINE_ORIGINAL)}</span>
                     </div>
                     <span className="text-xs text-emerald-400 font-semibold block mt-0.5">
                       Oszczędzasz {formatPLN(baseDiscountPerItem)}
@@ -660,222 +380,50 @@ export default function CheckoutClient({ userEmail }: Props) {
                   </span>
                 </div>
 
-                {/* Ilość */}
+                {/* Licencja */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    {isBook ? "Ilość egzemplarzy" : "Ilość licencji"}
+                    Licencja
                   </label>
-                  <div className="inline-flex items-center rounded-xl bg-slate-950 border border-slate-800 p-1">
-                    <button
-                      className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold flex items-center justify-center transition-colors"
-                      onClick={() => setQty((q) => Math.max(1, q - 1))}
-                      aria-label="Zmień ilość -"
-                    >
-                      −
-                    </button>
-                    <div className="px-4 text-sm font-bold text-white">{qty}</div>
-                    <button
-                      className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold flex items-center justify-center transition-colors"
-                      onClick={() => setQty((q) => Math.min(10, q + 1))}
-                      aria-label="Zmień ilość +"
-                    >
-                      +
-                    </button>
+                  <div className="rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-slate-300">
+                    <span className="font-bold text-white">1 licencja</span> – prywatny dostęp do materiału
                   </div>
                 </div>
 
-                {/* ==== DANE DOSTAWY (tylko książka) ==== */}
-                {isBook && (
-                  <div className="space-y-4 pt-2 border-t border-slate-800/80">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 ml-1">
-                        Imię i nazwisko
-                      </label>
-                      <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Jan Kowalski"
-                        className="w-full rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-4 py-3 text-sm focus:outline-none focus:border-rose-500/60 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 ml-1">
-                        Telefon
-                      </label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500 select-none text-sm">
-                          +48
-                        </span>
-                        <input
-                          type="tel"
-                          value={formatPLGroups(phone)}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="500 600 700"
-                          inputMode="numeric"
-                          className="w-full rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 pl-14 pr-4 py-3 text-sm focus:outline-none focus:border-rose-500/60 transition-all"
-                        />
-                      </div>
-                      {phone && !toE164PL(phone) && (
-                        <p className="mt-1 text-xs text-rose-400">Wpisz 9 cyfr.</p>
-                      )}
-                    </div>
-
-                    {/* Dostawa */}
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                        Dostawa
-                      </label>
-                      <div className="space-y-2 text-sm">
-                        <label
-                          className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                            shipping === "courier"
-                              ? "border-rose-500/50 bg-rose-500/5 text-white"
-                              : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="radio"
-                              className="accent-rose-500"
-                              checked={shipping === "courier"}
-                              onChange={() => setShipping("courier")}
-                            />
-                            <span className="font-semibold text-xs sm:text-sm">Kurier</span>
-                          </div>
-                          <span className="font-bold text-white text-xs">
-                            od {formatPLN(COURIER_STD)}
-                          </span>
-                        </label>
-
-                        {shipping === "courier" && (
-                          <div className="ml-2 pl-3 border-l border-slate-800 space-y-2">
-                            <label className="flex items-center justify-between gap-3 text-xs">
-                              <span className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  className="accent-rose-500"
-                                  checked={courierRate === "standard"}
-                                  onChange={() => setCourierRate("standard")}
-                                />
-                                <span className="text-slate-300">Standard (3–5 dni)</span>
-                              </span>
-                              <span className="text-slate-400">{formatPLN(COURIER_STD)}</span>
-                            </label>
-                            <label className="flex items-center justify-between gap-3 text-xs">
-                              <span className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  className="accent-rose-500"
-                                  checked={courierRate === "express"}
-                                  onChange={() => setCourierRate("express")}
-                                />
-                                <span className="text-slate-300">Ekspres (1–2 dni)</span>
-                              </span>
-                              <span className="text-slate-400">{formatPLN(COURIER_EXP)}</span>
-                            </label>
-
-                            <div className="grid grid-cols-1 gap-2 pt-1">
-                              <input
-                                value={addressLine1}
-                                onChange={(e) => setAddressLine1(e.target.value)}
-                                placeholder="Ulica i nr"
-                                className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-3 py-2.5 text-xs focus:outline-none focus:border-rose-500/60"
-                              />
-                              <div className="grid grid-cols-2 gap-2">
-                                <input
-                                  value={postalCode}
-                                  onChange={(e) => setPostalCode(e.target.value)}
-                                  placeholder="Kod pocztowy"
-                                  className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-3 py-2.5 text-xs focus:outline-none focus:border-rose-500/60"
-                                />
-                                <input
-                                  value={city}
-                                  onChange={(e) => setCity(e.target.value)}
-                                  placeholder="Miasto"
-                                  className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-3 py-2.5 text-xs focus:outline-none focus:border-rose-500/60"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        <label
-                          className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                            shipping === "inpost"
-                              ? "border-rose-500/50 bg-rose-500/5 text-white"
-                              : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="radio"
-                              className="accent-rose-500"
-                              checked={shipping === "inpost"}
-                              onChange={() => setShipping("inpost")}
-                            />
-                            <span className="font-semibold text-xs sm:text-sm">Paczkomat InPost</span>
-                          </div>
-                          <span className="font-bold text-white text-xs">{formatPLN(INPOST)}</span>
-                        </label>
-
-                                                {shipping === "inpost" && (
-                          <div className="ml-2 pl-3 border-l border-slate-800 pt-1">
-                            <InpostPicker
-                              value={lockerId}
-                              onChange={(cityVal, lockerVal) => {
-                                setLockerCity(cityVal);
-                                setLockerId(lockerVal);
-                              }}
-                            />
-                            {lockerId && (
-                              <p className="mt-1.5 text-[11px] text-slate-400">
-                                Wybrano: <span className="text-white font-semibold">{lockerId}</span>
-                                {lockerCity ? ` (${lockerCity})` : ""}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                {/* Kupon */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    Kupon rabatowy
+                  </label>
+                  <div className="relative">
+                    <input
+                      value={coupon}
+                      onChange={(e) => setCoupon(e.target.value)}
+                      placeholder="Kod rabatowy (np. KODRABATOWY)"
+                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-4 py-3 text-sm focus:outline-none focus:border-rose-500/60 transition-all pr-10"
+                    />
+                    <TagIcon className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
                   </div>
-                )}
-
-                {/* ==== Kupon (tylko wersja online) ==== */}
-                {!isBook && (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                      Kupon rabatowy
-                    </label>
-                    <div className="relative">
-                      <input
-                        value={coupon}
-                        onChange={(e) => setCoupon(e.target.value)}
-                        placeholder="Kod rabatowy (np. KODRABATOWY)"
-                        className="w-full rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 px-4 py-3 text-sm focus:outline-none focus:border-rose-500/60 transition-all pr-10"
-                      />
-                      <TagIcon className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
-                    </div>
-                    {coupon.trim() && (
-                      <p className="mt-1.5 text-xs text-rose-400 font-medium">
-                        Wpisz <span className="font-bold text-white">KODRABATOWY</span>, aby otrzymać -10%
-                      </p>
-                    )}
-                  </div>
-                )}
+                  {coupon.trim() && (
+                    <p className="mt-1.5 text-xs text-rose-400 font-medium">
+                      Wpisz <span className="font-bold text-white">KODRABATOWY</span>, aby otrzymać -10%
+                    </p>
+                  )}
+                </div>
 
                 {/* Podsumowanie kwot */}
                 <div className="border-t border-slate-800/80 pt-4 space-y-2.5 text-xs sm:text-sm text-slate-300">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Cena katalogowa</span>
-                    <span className="text-slate-400">{formatPLN(catalogSubtotal)}</span>
+                    <span className="text-slate-400">{formatPLN(ONLINE_ORIGINAL)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Przecena</span>
-                    <span className="text-rose-400">− {formatPLN(baseDiscountTotal)}</span>
+                    <span className="text-rose-400">− {formatPLN(baseDiscountPerItem)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Cena po przecenie</span>
-                    <span className="text-white font-medium">{formatPLN(subtotal)}</span>
+                    <span className="text-white font-medium">{formatPLN(ONLINE_PRICE)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Rabat kuponowy</span>
@@ -883,47 +431,96 @@ export default function CheckoutClient({ userEmail }: Props) {
                       − {formatPLN(discount)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Dostawa</span>
-                    <span className="text-white font-medium">{formatPLN(shippingCost)}</span>
-                  </div>
                   <div className="flex justify-between text-base sm:text-lg font-black text-white pt-3 border-t border-slate-800">
                     <span>Do zapłaty</span>
                     <span className="text-rose-400">{formatPLN(total)}</span>
                   </div>
                 </div>
 
-                                {formErr && (
+                {formErr && (
                   <div className="p-3 rounded-xl border bg-rose-500/10 border-rose-500/30 text-rose-300 text-xs font-semibold text-center">
                     {formErr}
                   </div>
                 )}
 
+                {/* Zgody wymagane przed płatnością */}
+                <div className="space-y-3 text-xs text-slate-300">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-rose-500"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    />
+                    <span className="leading-relaxed">
+                      Akceptuję{" "}
+                      <Link href="/regulamin" target="_blank" className="text-rose-400 hover:text-rose-300 underline underline-offset-2 font-semibold">
+                        Regulamin
+                      </Link>{" "}
+                      oraz{" "}
+                      <Link href="/polityka-prywatnosci" target="_blank" className="text-rose-400 hover:text-rose-300 underline underline-offset-2 font-semibold">
+                        Politykę prywatności
+                      </Link>{" "}
+                      i przyjmuję je do wiadomości.
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-rose-500"
+                      checked={acceptedImmediate}
+                      onChange={(e) => setAcceptedImmediate(e.target.checked)}
+                    />
+                    <span className="leading-relaxed">
+                      {IMMEDIATE_ACCESS_CONSENT_TEXT}
+                    </span>
+                  </label>
+                </div>
+
                 {/* Przycisk Płatności */}
                 <button
-                  disabled={processing}
+                  disabled={processing || !acceptedTerms || !acceptedImmediate}
                   onClick={handlePay}
-                  className="w-full rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-400 hover:to-pink-500 disabled:opacity-60 text-white font-extrabold py-4 text-base shadow-xl shadow-rose-500/25 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
+                  className="w-full rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-400 hover:to-pink-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold py-4 text-base shadow-xl shadow-rose-500/25 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
                 >
                   {processing ? "Przetwarzanie..." : "Przejdź do bezpiecznej płatności"}
                 </button>
 
                 {/* Gwarancja i bezpieczeństwo */}
-                <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2 text-xs text-slate-400 font-medium">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-rose-400 shrink-0" />
-                    <span>Gwarancja zwrotu pieniędzy przez 14 dni</span>
+                <div className="pt-2 border-t border-slate-800/80 space-y-3 text-xs font-medium">
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
+                      <span>14 dni na sprawdzenie całego planu</span>
+                    </div>
+                    <p className="text-slate-400 leading-relaxed">
+                      Przeczytaj cały poradnik. Jeśli w ciągu 14 dni uznasz, że nie
+                      dostałeś konkretnego planu działania, napisz na{" "}
+                      <a
+                        href="mailto:cozrobic@viholding.pl"
+                        className="text-emerald-300 hover:text-emerald-200 underline underline-offset-2 font-semibold"
+                      >
+                        cozrobic@viholding.pl
+                      </a>
+                      . Oddamy 149 zł i zamkniemy dostęp.
+                    </p>
+                    <a
+                      href="/regulamin"
+                      className="inline-block text-[11px] text-emerald-300/80 hover:text-emerald-200 underline underline-offset-2"
+                    >
+                      Zasady gwarancji (regulamin §8a)
+                    </a>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  <div className="flex items-center gap-2 text-slate-400">
                     <LockIcon className="w-4 h-4 text-slate-500 shrink-0" />
                     <span>Szyfrowane połączenie SSL (Stripe Checkout)</span>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
-
         </div>
       </main>
 
@@ -955,6 +552,11 @@ export default function CheckoutClient({ userEmail }: Props) {
                 ✕
               </button>
             </div>
+
+            <p className="mt-4 text-xs text-slate-400">
+              Aby kupić dostęp online, załóż konto lub zaloguj się. Po opłaceniu
+              od razu otrzymasz dostęp do materiału.
+            </p>
 
             {/* Przełącznik tabów */}
             <div className="grid grid-cols-2 p-1 bg-slate-950 border border-slate-800 rounded-2xl my-5">
@@ -1054,7 +656,7 @@ export default function CheckoutClient({ userEmail }: Props) {
                   ? "Przetwarzanie..."
                   : mode === "login"
                   ? "Zaloguj i zapłać"
-                  : "Zarejestruj się"}
+                  : "Zarejestruj się i zaloguj"}
               </button>
             </form>
 

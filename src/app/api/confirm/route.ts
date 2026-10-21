@@ -9,6 +9,13 @@ import { supabaseAdmin } from "../../lib/supabaseAdmin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+type ConsentInfo = {
+  terms_accepted_at: string | null;
+  terms_text: string | null;
+  immediate_access_at: string | null;
+  immediate_access_text: string | null;
+};
+
 export async function GET(req: NextRequest) {
   const sessionId = req.nextUrl.searchParams.get("session_id");
   if (!sessionId) {
@@ -54,7 +61,58 @@ export async function GET(req: NextRequest) {
     }
 
     console.log("[confirm] status=paid set for", email);
-    return NextResponse.json({ ok: true, paid: true, email });
+
+    // Potwierdzenie zapisanych zgód (data + treść) — do wyświetlenia na /success.
+    // Najpierw wiersz zapisany przy tworzeniu sesji, w razie braku — upsert z metadata.
+    let consent: ConsentInfo | null = null;
+
+
+
+
+
+
+
+
+
+
+
+
+    const acceptedAt =
+      (session.metadata?.consents_accepted_at as string) || new Date().toISOString();
+
+    if (session.metadata?.consent_terms === "1") {
+      await supabaseAdmin
+        .from("order_consents")
+        .upsert(
+          {
+            stripe_session_id: session.id,
+            user_email: email,
+            product: "online",
+            terms_accepted: true,
+            terms_version:
+              (session.metadata?.consent_terms_version as string) || null,
+            terms_accepted_at: acceptedAt,
+            immediate_access_accepted: session.metadata?.consent_immediate === "1",
+            immediate_access_version:
+              (session.metadata?.consent_immediate_version as string) || null,
+            immediate_access_at:
+              session.metadata?.consent_immediate === "1" ? acceptedAt : null,
+          },
+          { onConflict: "stripe_session_id", ignoreDuplicates: true }
+        );
+    }
+
+    const { data: consentRow } = await supabaseAdmin
+      .from("order_consents")
+      .select(
+        "terms_accepted_at, terms_text, immediate_access_at, immediate_access_text"
+      )
+      .eq("stripe_session_id", session.id)
+      .maybeSingle();
+
+    if (consentRow) consent = consentRow as ConsentInfo;
+
+    return NextResponse.json({ ok: true, paid: true, email, consent });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Stripe error";
     console.error("[confirm] error:", message);

@@ -56,10 +56,25 @@ const faqItems = [
     answer:
       "Nie. Możesz zacząć samodzielnie. Poradnik nie opiera się na ukrytych sztuczkach, tylko na zmianie sposobu działania, rozmowy i budowania bliskości.",
   },
-  {
+    {
     question: "Co, jeśli problem może wynikać z bólu, choroby albo leków?",
     answer:
       "Poradnik pomoże Ci zauważyć takie sygnały, ale nie zastępuje diagnozy. W takiej sytuacji właściwym krokiem jest konsultacja z lekarzem lub odpowiednim specjalistą.",
+  },
+  {
+    question: "Jak działa gwarancja i co, jeśli poradnik mi nie pomoże?",
+    answer:
+      "Masz 14 dni na sprawdzenie całego planu. Jeśli po zapoznaniu się z całością uznasz, że nie dostajesz konkretnego planu działania, napisz na cozrobic@viholding.pl w ciągu 14 dni od zakupu. Zwrócimy 149 zł, a dostęp zostanie zamknięty. Gwarancja dotyczy dostępu online i została opisana w regulaminie (§8a).",
+  },
+  {
+    question: "Czy mogę zaprosić drugą osobę do korzystania z materiałów?",
+    answer:
+      "Tak. Po zakupie w swoim panelu możesz wygenerować prywatny link z zaproszeniem do drugiej osoby lub wpisać jej e-mail, aby rozdziały były wysyłane etapami (co kilka dni). Dzięki temu partner czy partnerka poznaje materiał we własnym tempie, bez presji.",
+  },
+  {
+    question: "Chcę też książkę w wersji drukowanej. Jak ją zamówić?",
+    answer:
+      "Książkę zamówisz osobno — bezpośrednio po zakupie dostępu online lub później ze swojego panelu, przez stronę zamówienia. Dostęp online i książka to dwa odrębne produkty: dostęp aktywuje się natychmiast, a książkę wysyłamy kurierem lub do paczkomatu InPost.",
   },
 ];
 
@@ -87,10 +102,10 @@ const FAQ = () => {
           <p className="text-slate-400 text-sm sm:text-base">
             Masz inne pytanie? Napisz do nas:{" "}
             <a
-              href="mailto:wsparcie@twojplan.pl"
+              href="mailto:cozrobic@viholding.pl"
               className="text-rose-400 hover:text-rose-300 font-semibold underline underline-offset-4 decoration-rose-500/40 transition-colors"
             >
-              wsparcie@twojplan.pl
+              cozrobic@viholding.pl
             </a>
           </p>
         </div>

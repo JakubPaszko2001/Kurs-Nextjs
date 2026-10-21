@@ -76,8 +76,13 @@ export async function GET(req: NextRequest) {
     const n = Math.max(1, Number(row.current_chapter || 1));
 
     try {
-      await sendChapterMail(tx, row.partner_email, n, Number(row.cadence_days || 3));
-
+      await sendChapterMail(
+        tx,
+        row.partner_email,
+        n,
+        Number(row.cadence_days || 3),
+        row.unsubscribe_token
+      );
       processed += 1;
 
       if (n >= MAX_CHAPTERS) {
@@ -96,6 +101,14 @@ export async function GET(req: NextRequest) {
           next.setMinutes(next.getMinutes() + fastMinutes);
         } else {
           next.setDate(next.getDate() + Number(row.cadence_days || 3));
+        }
+
+        // Twardy limit: maksymalnie raz dziennie (min. 24h od wysyłki).
+        if (!fast) {
+          const minNext = new Date(Date.now() + 24 * 60 * 60 * 1000);
+          if (next.getTime() < minNext.getTime()) {
+            next.setTime(minNext.getTime());
+          }
         }
 
         await supabase
@@ -120,3 +133,4 @@ export async function GET(req: NextRequest) {
       : "SMTP nie jest skonfigurowane — maile NIE zostały wysłane (tylko podgląd w logach). Ustaw SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM.",
   });
 }
+

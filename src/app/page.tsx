@@ -4,6 +4,7 @@ import Hero from "./components/Hero";
 import HowItWorks from "./components/HowItWorks";
 import WhatYouGet from "./components/WhatYouGet";
 import WhyItWorks from "./components/WhyItWorks";
+import ProblemBlock from "./components/ProblemBlock";
 import Purchase from "./components/Purchase";
 import FAQ from "./components/FAQ";
 import FinalCTA from "./components/FinalCTA";
@@ -50,10 +51,11 @@ export default async function Page() {
         <Hero />
         <HowItWorks />
         <WhatYouGet />
-        <WhyItWorks />
+                <WhyItWorks />
+        <ProblemBlock />
         <Purchase />
         <FAQ />
-                <FinalCTA />
+        <FinalCTA />
       </main>
 
       <Footer />

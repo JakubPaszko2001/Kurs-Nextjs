@@ -66,14 +66,22 @@ const Footer = () => {
             <span className="text-slate-800 hidden sm:inline">•</span>
 
             <a
-              href="mailto:wsparcie@twojplan.pl"
+              href="mailto:cozrobic@viholding.pl"
               className="inline-flex items-center gap-1.5 text-rose-400 hover:text-rose-300 font-semibold transition-colors duration-200"
             >
               <MailIcon className="w-4 h-4" />
               <span>Kontakt</span>
             </a>
-          </nav>
+                    </nav>
 
+        </div>
+
+        {/* Disclaimer edukacyjny */}
+        <div className="mt-8 pt-6 border-t border-slate-800/80">
+          <p className="text-xs text-slate-500 leading-relaxed text-center max-w-3xl mx-auto">
+            Materiał ma charakter edukacyjny i nie zastępuje indywidualnej pomocy
+            medycznej, psychologicznej ani seksuologicznej.
+          </p>
         </div>
       </div>
     </footer>

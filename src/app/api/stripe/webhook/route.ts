@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
           session.customer_details?.email ||
           "";
 
-        if (userEmail) {
+                if (userEmail) {
           const { error } = await supabaseAdmin
             .from("users")
             .update({ status: "paid" })
@@ -168,6 +168,39 @@ export async function POST(req: NextRequest) {
           else console.log("[webhook] status=paid set for", userEmail);
         } else {
           console.warn("[webhook] no email on session (course)");
+        }
+
+        // Zgody: jeśli z jakiegoś powodu nie zapisano ich przy tworzeniu sesji,
+        // dopisujemy wiersz na podstawie metadata (data = moment akceptacji).
+        const acceptedAt =
+          (session.metadata?.consents_accepted_at as string) ||
+          new Date().toISOString();
+        if (userEmail && session.metadata?.consent_terms === "1") {
+          const { error: consentErr } = await supabaseAdmin
+            .from("order_consents")
+            .upsert(
+              {
+                stripe_session_id: session.id,
+                user_email: userEmail,
+                product: "online",
+                terms_accepted: true,
+                terms_version:
+                  (session.metadata?.consent_terms_version as string) || null,
+                terms_accepted_at: acceptedAt,
+                immediate_access_accepted:
+                  session.metadata?.consent_immediate === "1",
+                immediate_access_version:
+                  (session.metadata?.consent_immediate_version as string) || null,
+                immediate_access_at:
+                  session.metadata?.consent_immediate === "1"
+                    ? acceptedAt
+                    : null,
+              },
+              { onConflict: "stripe_session_id", ignoreDuplicates: true }
+            );
+          if (consentErr) {
+            console.error("[webhook] order_consents upsert error:", consentErr);
+          }
         }
       }
     }

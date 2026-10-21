@@ -29,10 +29,9 @@ export default function RegulaminPage() {
               cyfrowych i fizycznych oferowanych za jego pośrednictwem.
             </p>
             <p className="mt-2">
-              2. Sprzedawcą jest podmiot prowadzący działalność gospodarczą pod firmą
-              [NAZWA FIRMY], z siedzibą pod adresem [ADRES], NIP: [NIP], REGON: [REGON],
-              adres e-mail do kontaktu: [ADRES E-MAIL]. Dane te należy uzupełnić przed
-              publikacją Serwisu.
+              2. Sprzedawcą jest CAR FOR YOU sp. z o.o. z siedzibą pod adresem
+              ul. Warszawska 6/32, 15-063 Białystok, NIP: 9662100107, REGON: 362766440,
+              KRS: 0000581279, adres e-mail do kontaktu: cozrobic@viholding.pl.
             </p>
             <p className="mt-2">
               3. Kontakt z Sprzedawcą odbywa się drogą elektroniczną pod adresem e-mail
@@ -69,7 +68,7 @@ export default function RegulaminPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white">§4. Rejestracja i konto</h2>
+            <h2 className="text-xl font-bold text-white">§4. Rejestracja i konto klienta</h2>
             <p className="mt-2">
               1. Do korzystania z Przewodnika wymagane jest utworzenie konta (podanie adresu
               e-mail oraz hasła).
@@ -80,7 +79,11 @@ export default function RegulaminPage() {
             </p>
             <p className="mt-2">
               3. Zabronione jest udostępnianie dostępu do konta oraz treści Przewodnika osobom
-              trzecim.
+              trzecim. Zasady dotyczące zaproszenia drugiej osoby opisuje §6a.
+            </p>
+            <p className="mt-2">
+              4. Hasło przechowywane jest w bazie danych dostawcy usług chmurowych (Supabase).
+              Klient powinien używać hasła unikalnego i nie udostępniać go osobom trzecim.
             </p>
           </section>
 
@@ -91,35 +94,86 @@ export default function RegulaminPage() {
               płatności.
             </p>
             <p className="mt-2">
-              2. Płatności obsługiwane są przez zewnętrznego operatora płatności (Stripe).
-              Sprzedawca nie przechowuje danych kart płatniczych.
+              2. Płatności obsługiwane są przez zewnętrznego operatora płatności{" "}
+              <strong>Stripe</strong> (Stripe Payments Europe, Ltd.). Sprzedawca nie przetwarza
+              ani nie przechowuje danych kart płatniczych – są one przekazywane bezpośrednio do
+              operatora płatności.
             </p>
             <p className="mt-2">
               3. Ceny podane w Serwisie są cenami brutto wyrażonymi w złotych polskich (PLN).
+            </p>
+            <p className="mt-2">
+              4. Po zaksięgowaniu płatności dostęp online do Przewodnika zostaje aktywowany
+              natychmiastowo (§6).
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-bold text-white">§6. Dostęp do produktu cyfrowego</h2>
             <p className="mt-2">
-              1. Dostęp do Przewodnika cyfrowego udzielany jest niezwłocznie po zaksięgowaniu
-              płatności, w sposób umożliwiający jego pobranie lub wyświetlenie w Serwisie.
+              1. Przewodnik ma postać treści cyfrowej udostępnianej online w Serwisie po
+              zalogowaniu na konto Klienta.
             </p>
             <p className="mt-2">
-              2. Klient zobowiązany jest do korzystania z materiałów wyłącznie na własne
+              2. Dostęp do Przewodnika udzielany jest <strong>natychmiast po zaksięgowaniu
+              płatności</strong> – Klient może otworzyć materiał od razu, bez oczekiwania na
+              przesyłkę.
+            </p>
+            <p className="mt-2">
+              3. Składając zamówienie, Klient żąda rozpoczęcia dostarczania treści cyfrowej
+              przed upływem terminu do odstąpienia od umowy i przyjmuje do wiadomości, że po
+              rozpoczęciu świadczenia traci prawo odstąpienia od umowy w zakresie treści
+              cyfrowych dostarczanych bez nośnika materialnego (art. 38 pkt 13 ustawy o prawach
+              konsumenta). Szczegóły w §8.
+            </p>
+            <p className="mt-2">
+              4. Klient zobowiązany jest do korzystania z materiałów wyłącznie na własne
               potrzeby. Kopiowanie, nagrywanie, rozpowszechnianie i odsprzedaż treści bez
               zgody Sprzedawcy są zabronione.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white">§7. Dostawa produktu fizycznego</h2>
+            <h2 className="text-xl font-bold text-white">§6a. Zaproszenie drugiej osoby</h2>
             <p className="mt-2">
-              1. Książka wysyłana jest na adres wskazany przez Klienta, za pośrednictwem
+              1. Po zakupie dostępu online Klient może w swoim panelu wygenerować prywatny link
+              z zaproszeniem do skorzystania z materiałów przez drugą, bliską osobę.
+            </p>
+            <p className="mt-2">
+              2. <strong>Adres e-mail osoby zaproszonej nie jest zbierany od Klienta.</strong>{" "}
+              Osoba zaproszona sama otwiera link, podaje swój adres e-mail oraz wyraża zgodę na
+              otrzymywanie materiałów, dopiero akceptując zaproszenie.
+            </p>
+            <p className="mt-2">
+              3. Po akceptacji zaproszenia osoba zaproszona otrzymuje rozdziały materiału
+              etapami – maksymalnie jedna wiadomość dziennie – i w każdej chwili może
+              zrezygnować z dalszych wysyłek za pomocą linku „stop” zawartego w wiadomości.
+            </p>
+            <p className="mt-2">
+              4. Zaproszenie ma charakter prywatny i bezpłatny; nie stanowi odrębnej sprzedaży
+              ani udzielenia licencji osobie trzeciej w rozumieniu §4 ust. 3. Klient odpowiada
+              za to, komu przekazuje link zaproszenia.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-white">§7. Dostawa produktu fizycznego (książka)</h2>
+            <p className="mt-2">
+              1. Książka w wersji drukowanej jest <strong>odrębnym produktem</strong> od
+              dostępu online i zamawiana jest osobno – bezpośrednio po zakupie dostępu online
+              albo później z poziomu konta Klienta.
+            </p>
+            <p className="mt-2">
+              2. Książka wysyłana jest na adres wskazany przez Klienta, za pośrednictwem
               kuriera lub paczkomatu InPost.
             </p>
             <p className="mt-2">
-              2. Koszt oraz przewidywany czas dostawy określane są przy składaniu zamówienia.
+              3. Koszt oraz przewidywany czas dostawy określane są przy składaniu zamówienia
+              książki.
+            </p>
+            <p className="mt-2">
+              4. Zakup dostępu online nie zawiera książki, a zakup książki nie obejmuje dostępu
+              online – chyba że w danym zamówieniu wyraźnie wskazano inaczej.
             </p>
           </section>
 
@@ -140,6 +194,42 @@ export default function RegulaminPage() {
               3. W przypadku produktu fizycznego (książki) Konsument może odstąpić od umowy w
               terminie 14 dni od otrzymania przesyłki. Zwracany produkt powinien być w stanie
               nienaruszonym.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-white">
+              §8a. Dobrowolna gwarancja satysfakcji Sprzedawcy (14 dni)
+            </h2>
+            <p className="mt-2">
+              1. Niezależnie od ustawowych praw konsumenta opisanych w §8, Sprzedawca
+              udziela dobrowolnej gwarancji satysfakcji na dostęp online do Przewodnika
+              („14 dni na sprawdzenie całego planu”).
+            </p>
+            <p className="mt-2">
+              2. Gwarancja obejmuje zakup dostępu online do Przewodnika w cenie 149 zł.
+            </p>
+            <p className="mt-2">
+              3. Warunki skorzystania z gwarancji:
+            </p>
+            <ul className="mt-2 list-disc pl-6 space-y-1">
+              <li>zgłoszenie w terminie 14 dni od dnia zakupu,</li>
+              <li>oświadczenie Klienta, że zapoznał się z całością materiału,</li>
+              <li>zgłoszenie przesłane na adres e-mail: cozrobic@viholding.pl.</li>
+            </ul>
+            <p className="mt-2">
+              4. Po spełnieniu warunków Sprzedawca zwraca Klientowi kwotę 149 zł, a dostęp
+              do Przewodnika zostaje zamknięty.
+            </p>
+            <p className="mt-2">
+              5. Gwarancja dotyczy wyłącznie dostępu online do Przewodnika. Zamówiona
+              odrębnie książka w wersji drukowanej podlega odrębnym zasadom zwrotu produktu
+              fizycznego, opisanym w §8 ust. 3, i nie jest objęta niniejszą gwarancją.
+            </p>
+            <p className="mt-2">
+              6. Skorzystanie z dobrowolnej gwarancji Sprzedawcy nie wyłącza ani nie ogranicza
+              uprawnień przysługujących Klientowi na podstawie przepisów prawa, w tym
+              ustawowych praw konsumenta.
             </p>
           </section>
 
@@ -174,10 +264,6 @@ export default function RegulaminPage() {
             </p>
           </section>
 
-          <p className="text-sm text-white/50 pt-4 border-t border-white/10">
-            Uwaga: powyższy regulamin jest wzorem i przed publikacją wymaga uzupełnienia danych
-            Sprzedawcy (nazwa, adres, NIP, REGON, e-mail) oraz weryfikacji prawnej.
-          </p>
         </div>
       </div>
     </div>

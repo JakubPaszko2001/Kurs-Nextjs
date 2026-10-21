@@ -100,7 +100,8 @@ const Purchase: React.FC = () => {
           </h2>
 
           <p className="text-slate-400 text-base sm:text-lg max-w-xl mx-auto">
-            14 dni gwarancji satysfakcji. Błyskawiczny i w 100% anonimowy dostęp natychmiast po opłaceniu zamówienia.
+
+            14 dni na sprawdzenie całego planu. Błyskawiczny i w 100% anonimowy dostęp natychmiast po opłaceniu zamówienia.
           </p>
         </div>
 
@@ -160,7 +161,6 @@ const Purchase: React.FC = () => {
 
               {/* Dodatkowe zabezpieczenie pod przyciskiem */}
               <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-400 font-medium">
-                <ShieldCheck className="w-4 h-4 text-rose-400" />
                 <span>Bezpieczny zakup z 14-dniową gwarancją</span>
               </div>
 

@@ -6,7 +6,8 @@ import Link from "next/link";
 
 
 import { supabaseAdmin } from "../lib/supabaseAdmin"; // popraw ścieżkę jeśli u Ciebie inna
-import PartnerSendCard from "./PartnerSendCard";
+
+import SharingCard from "./SharingCard";
 import { chapters } from "./chapters";
 
 export const dynamic = "force-dynamic";
@@ -252,10 +253,9 @@ export default async function Userpage() {
             </div>
           </div>
         ) : (
-                    /* AKTYWNY DOSTĘP */
+                              /* AKTYWNY DOSTĘP */
           <div className="mt-8 space-y-6">
-            {/* Sekcja: wyślij dla drugiej połówki (styl „Twoje produkty”) — powyżej „Pełen Dostęp” */}
-            <PartnerSendCard />
+            <SharingCard />
 
             <div className="relative overflow-hidden rounded-3xl border border-rose-500/20 bg-slate-900/60 p-6 sm:p-8 backdrop-blur-xl">
               <div className="flex items-start justify-between gap-4">

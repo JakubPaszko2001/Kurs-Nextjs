@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
 import {
   makeTransport,
   smtpConfigured,
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Podaj poprawny e-mail partnera." }, { status: 400 });
   }
     const days = Math.min(30, Math.max(1, Number(cadenceDays) || 3));
+    const unsubscribeToken = randomBytes(24).toString("hex");
 
     // Pierwszy mail wysyłamy NATYCHMIAST, a kolejne co `days` dni (cron).
     const now = new Date();
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
           current_chapter: 1,
           next_send_at: now.toISOString(), // do kalkulacji kolejnego terminu
           status: "active",
+          unsubscribe_token: unsubscribeToken,
         },
       ])
       .select("id")
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const tx = makeTransport();
-      await sendChapterMail(tx, partnerEmail, 1, days);
+      await sendChapterMail(tx, partnerEmail, 1, days, unsubscribeToken);
       sent = true;
       if (smtp) {
         console.log("[partner-mail:schedule] wysłano 1. mail natychmiast:", partnerEmail);
@@ -105,3 +108,4 @@ export async function POST(req: NextRequest) {
       nextSendAt: isLast ? null : next.toISOString(),
     });
 }
+

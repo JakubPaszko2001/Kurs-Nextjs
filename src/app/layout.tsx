@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-  openGraph: {
+    openGraph: {
     type: "website",
     locale: "pl_PL",
     url: SITE_URL,
@@ -46,12 +46,21 @@ export const metadata: Metadata = {
     title: "Co zrobić, gdy druga połówka nie chce? | Plan odzyskania bliskości",
     description:
       "Konkretny przewodnik i 4-tygodniowy plan dla osób, które chcą odbudować seks, pożądanie i bliskość w związku.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Okładka poradnika – Plan odzyskania bliskości",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Co zrobić, gdy druga połówka nie chce?",
     description:
       "Konkretny przewodnik i 4-tygodniowy plan odbudowy bliskości i pożądania w związku.",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,

@@ -69,6 +69,24 @@ const features = [
 export default function SuccessPage() {
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
   const [message, setMessage] = useState("Weryfikujemy Twoją płatność...");
+  const [consent, setConsent] = useState<{
+    terms_accepted_at: string | null;
+    terms_text: string | null;
+    immediate_access_at: string | null;
+    immediate_access_text: string | null;
+  } | null>(null);
+
+  const fmtDate = (iso?: string | null) => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleString("pl-PL", {
+        dateStyle: "long",
+        timeStyle: "short",
+      });
+    } catch {
+      return iso;
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -87,6 +105,7 @@ export default function SuccessPage() {
         if (data?.paid) {
           setState("ok");
           setMessage("Dostęp został aktywowany.");
+          if (data?.consent) setConsent(data.consent);
         } else {
           setState("error");
           setMessage(
@@ -156,9 +175,50 @@ export default function SuccessPage() {
                   </span>
                 </h1>
 
-                <p className="mt-4 text-slate-300 text-sm sm:text-base">
+                                <p className="mt-4 text-slate-300 text-sm sm:text-base">
                   {message}
                 </p>
+
+                {/* Potwierdzenie zapisanych zgód (data + treść) */}
+                {consent && (
+                  <div className="mt-6 text-left bg-slate-950/50 border border-slate-800/80 rounded-2xl p-5 space-y-3">
+                    <h2 className="text-sm font-bold text-white">
+                      Potwierdzenie akceptacji
+                    </h2>
+
+                    {consent.terms_accepted_at && (
+                      <div className="text-xs text-slate-400 leading-relaxed">
+                        <span className="block text-slate-300 font-semibold">
+                          Regulamin i Polityka prywatności — zaakceptowano{" "}
+                          {fmtDate(consent.terms_accepted_at)}
+                        </span>
+                        {consent.terms_text && (
+                          <span className="block mt-1 text-slate-500">
+                            „{consent.terms_text}”
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {consent.immediate_access_at && (
+                      <div className="text-xs text-slate-400 leading-relaxed">
+                        <span className="block text-slate-300 font-semibold">
+                          Natychmiastowy dostęp do treści cyfrowej —
+                          zaakceptowano {fmtDate(consent.immediate_access_at)}
+                        </span>
+                        {consent.immediate_access_text && (
+                          <span className="block mt-1 text-slate-500">
+                            „{consent.immediate_access_text}”
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-800/80">
+                      Kopię tych zgód otrzymasz także na swój adres e-mail.
+                    </p>
+                  </div>
+                )}
 
                 {/* Lista korzyści */}
                 <ul className="mt-8 space-y-3 text-left bg-slate-950/50 border border-slate-800/80 rounded-2xl p-5">
@@ -228,10 +288,10 @@ export default function SuccessPage() {
                 <p className="mt-6 text-xs text-slate-500">
                   Masz pytania? Napisz na{" "}
                   <a
-                    href="mailto:wsparcie@twojplan.pl"
+                    href="mailto:cozrobic@viholding.pl"
                     className="text-rose-400 hover:text-rose-300 font-semibold"
                   >
-                    wsparcie@twojplan.pl
+                    cozrobic@viholding.pl
                   </a>
                 </p>
               </>

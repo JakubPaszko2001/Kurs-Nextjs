@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Projekt (Kurs-Nextjs) ma zaplanowane testy end-to-end, które odbędą się PÓŹNIEJ, dopiero na polecenie użytkownika. Do tego czasu NIE traktuj braku testów jako błędu ani nie uruchamiaj testów automatycznie. Gdy użytkownik poprosi o testy, sprawdź: (1) zakup online → status paid, (2) „Udostępnij bezpłatnie” → link zaproszenia → akceptacja z własnym e-mailem → zaplanowanie wysyłki, (3) mailer: dyskretny temat „Materiał – część N” + link /stop/[token], (4) zatrzymanie wysyłki przez /stop, (5) limit maks. 1 wiadomość dziennie (cron), (6) „Zamów wersję drukowaną” 99 zł + koszt/forma dostawy widoczne przed zapłatą. Wymagane do testów: SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/MAIL_FROM oraz uruchamiany cron z CRON_SECRET. Baza supabase-invites.sql została już uruchomiona przez użytkownika.

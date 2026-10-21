@@ -57,7 +57,8 @@ const Hero = () => {
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-white">
-              Co zrobić, gdy Twoja <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">druga połówka nie chce</span>
+                            Co zrobić, gdy Twoja <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">druga połówka nie chce</span>?
+
             </h1>
 
             <div className="space-y-4 text-slate-300 text-base sm:text-lg leading-relaxed">

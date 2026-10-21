@@ -1,17 +1,32 @@
 // src/app/api/checkout/route.ts
-// JEDEN endpoint obsługujący obie wersje produktu:
-//   - version = "online"  -> Kurs cyfrowy (Plan odzyskania bliskości)
-//   - version = "book"     -> Książka w wersji fizycznej (druk) + dostawa
+// Endpoint płatności dla produktu cyfrowego:
+//   „Plan odzyskania bliskości – pełen dostęp online” – 1 licencja (149 zł)
 //
-// Dzięki temu /checkout może mieć przełącznik wersji bez osobnych endpointów.
+// Wymagane zgody (walidowane też tutaj, nie tylko w UI):
+//   1) akceptacja Regulaminu i Polityki prywatności,
+//   2) żądanie natychmiastowego dostępu + przyjęcie skutków dla prawa odstąpienia.
+// Datę i pełną treść zgód zapisujemy w metadata Stripe ORAZ w tabeli order_consents.
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
+import {
+  TERMS_VERSION,
+  TERMS_CONSENT_TEXT,
+  IMMEDIATE_ACCESS_VERSION,
+  IMMEDIATE_ACCESS_CONSENT_TEXT,
+} from "../../lib/consents";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "service-role-placeholder",
+  { auth: { persistSession: false, autoRefreshToken: false } }
+);
 
 async function getEmailFromCookie(): Promise<string | undefined> {
   const token = (await cookies()).get("session")?.value;
@@ -54,223 +69,102 @@ export async function POST(req: NextRequest) {
     const cookieEmail = await getEmailFromCookie();
     const body = (await req.json().catch(() => ({}))) as Record<string, any>;
 
-    const version: "online" | "book" =
-      body.version === "book" ? "book" : "online";
-
-    const {
-      email = cookieEmail,
-      name,
-      phone,
-      qty: rawQty,
-      coupon,
-
-      // dostawa (tylko książka)
-      shipping, // "courier" | "inpost"
-      courierRate, // "standard" | "express"
-      addressLine1,
-      city,
-      postalCode,
-      country = "PL",
-      lockerCity,
-      lockerId,
-    } = body;
+    const email = body.email || cookieEmail;
 
     if (!isEmail(email)) {
       return NextResponse.json({ error: "Podaj poprawny adres e-mail." }, { status: 400 });
     }
 
-    let qty = Number.isFinite(rawQty) ? Number(rawQty) : 1;
-    if (qty < 1) qty = 1;
-    if (qty > 10) qty = 10;
+    // --- Zgody (walidacja po stronie serwera) ---
+    const acceptedTerms = body.acceptedTerms === true;
+    const acceptedImmediate = body.acceptedImmediate === true;
 
-    // ------------------------------------------------------------------
-    // WERSJA ONLINE (kurs cyfrowy)
-    // ------------------------------------------------------------------
-    if (version === "online") {
-      const ORIGINAL = Number(process.env.STRIPE_COURSE_ORIGINAL_PLN ?? "20000");
-      const PRICE = Number(process.env.STRIPE_COURSE_PRICE_PLN ?? "14900");
-      const productName =
-        process.env.STRIPE_COURSE_NAME ||
-        "Plan odzyskania bliskości – pełen dostęp";
-
-      const unitAmount = Number(process.env.STRIPE_COURSE_AMOUNT_PLN ?? PRICE);
-
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        locale: "pl",
-        success_url: `${url}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${url}/checkout?canceled=1`,
-        line_items: [
-          {
-            price_data: {
-              currency: "pln",
-              unit_amount: unitAmount,
-              product_data: { name: productName },
-            },
-            quantity: qty,
-          },
-        ],
-        customer_email: email || undefined,
-        allow_promotion_codes: true,
-        metadata: {
-          kind: "course",
-          version,
-          user_email: email || "",
-          qty: String(qty),
-          catalog_original: String(ORIGINAL),
-        },
-      });
-
-      return NextResponse.json({ url: session.url }, { status: 200 });
+    if (!acceptedTerms) {
+    return NextResponse.json(
+        { error: "Wymagana jest akceptacja Regulaminu i Polityki prywatności." },
+        { status: 400 }
+      );
     }
 
-    // ------------------------------------------------------------------
-    // WERSJA KSIĄŻKA (fizyczna) — z dostawą
-    // ------------------------------------------------------------------
-    if (!name || !String(name).trim()) {
-      return NextResponse.json({ error: "Imię i nazwisko są wymagane." }, { status: 400 });
-    }
-    if (!phone || !/^\+?\d{9,15}$/.test(String(phone))) {
-      return NextResponse.json({ error: "Telefon jest wymagany." }, { status: 400 });
-    }
-    if (shipping === "courier") {
-      if (!addressLine1 || !postalCode || !city) {
-        return NextResponse.json({ error: "Uzupełnij adres dla kuriera." }, { status: 400 });
-      }
-    } else if (shipping === "inpost") {
-      if (!lockerId) {
-        return NextResponse.json({ error: "Brak wybranego paczkomatu." }, { status: 400 });
-      }
-    } else {
-      return NextResponse.json({ error: "Nieprawidłowy typ dostawy." }, { status: 400 });
-    }
-
-    const priceId = process.env.STRIPE_BOOK_PRICE_ID || undefined;
-    const amountFallback = Number(process.env.STRIPE_BOOK_AMOUNT_PLN || "9900");
-    const productName = process.env.STRIPE_BOOK_NAME || "Książka w okładce";
-
-    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = priceId
-      ? [{ price: priceId, quantity: qty }]
-      : [
-          {
-            quantity: qty,
-            price_data: {
-              currency: "pln",
-              unit_amount: amountFallback,
-              product_data: { name: productName },
-            },
-          },
-        ];
-
-    const courierStd = Number(process.env.STRIPE_SHIP_COURIER_STANDARD_PLN ?? "0");
-    const courierExp = Number(process.env.STRIPE_SHIP_COURIER_EXPRESS_PLN ?? "1900");
-    const inpostPrice = Number(process.env.STRIPE_SHIP_INPOST_PLN ?? "1200");
-
-    let shipping_address_collection:
-      | Stripe.Checkout.SessionCreateParams.ShippingAddressCollection
-      | undefined;
-    let shipping_options:
-      | Stripe.Checkout.SessionCreateParams.ShippingOption[]
-      | undefined;
-
-    const metadata: Record<string, string> = {
-      kind: "physical_book",
-      version,
-      user_email: String(email),
-      shipping_method: shipping,
-      qty: String(qty),
-      // Dane wpisane w formularzu — webhook zapisze je do book_orders
-      customer_name: String(name || ""),
-      customer_phone: String(phone || ""),
-    };
-
-    if (shipping === "inpost") {
-      metadata.inpost_locker = String(lockerId);
-      if (lockerCity) metadata.inpost_city = String(lockerCity);
-
-      shipping_address_collection = { allowed_countries: ["PL"] };
-      shipping_options = [
+    if (!acceptedImmediate) {
+      return NextResponse.json(
         {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            display_name: "Paczkomat InPost",
-            fixed_amount: { currency: "pln", amount: inpostPrice },
-          },
+          error:
+            "Wymagana jest zgoda na natychmiastowy dostęp do treści cyfrowej i przyjęcie skutków dla prawa odstąpienia.",
         },
-      ];
-    } else {
-      shipping_address_collection = {
-        allowed_countries: [
-          "PL", "DE", "CZ", "SK", "AT", "NL", "BE", "GB", "FR", "IE", "DK", "SE", "NO", "US",
-        ],
-      };
-      const rate =
-        courierRate === "express"
-          ? {
-              display_name: "Kurier – ekspres (1–2 dni)",
-              fixed_amount: { currency: "pln", amount: courierExp },
-            }
-          : {
-              display_name: "Kurier – standard (3–5 dni)",
-              fixed_amount: { currency: "pln", amount: courierStd },
-            };
-      shipping_options = [{ shipping_rate_data: { type: "fixed_amount", ...rate } }];
+        { status: 400 }
+      );
+}
 
-      // Adres kuriera do metadata (źródło prawdy dla webhooka)
-      metadata.address_line1 = String(addressLine1 || "");
-      metadata.address_city = String(city || "");
-      metadata.address_postal_code = String(postalCode || "");
-      metadata.address_country = String(country || "PL");
-    }
+    const acceptedAt = new Date().toISOString();
 
-    // Customer + prefill
-    const found = await stripe.customers.list({ email, limit: 1 });
-    const customer =
-      found.data[0] ??
-      (await stripe.customers.create({ email, name, phone }));
+    const ORIGINAL = Number(process.env.STRIPE_COURSE_ORIGINAL_PLN ?? "20000");
+    const PRICE = Number(process.env.STRIPE_COURSE_PRICE_PLN ?? "14900");
+    const productName =
+      process.env.STRIPE_COURSE_NAME ||
+      "Plan odzyskania bliskości – pełen dostęp online";
 
-    const customerId = customer.id;
+    const unitAmount = Number(process.env.STRIPE_COURSE_AMOUNT_PLN ?? PRICE);
 
-    const toUpdate: Stripe.CustomerUpdateParams = {};
-    if (customer.name !== name) toUpdate.name = name;
-    if (customer.phone !== phone) toUpdate.phone = phone;
-    if (Object.keys(toUpdate).length) {
-      await stripe.customers.update(customerId, toUpdate);
-    }
-
-    if (shipping === "courier") {
-      await stripe.customers.update(customerId, {
-        shipping: {
-          name,
-          phone,
-          address: {
-            line1: addressLine1,
-            city,
-            postal_code: postalCode,
-            country,
-          },
-        },
-      });
-    }
-
+    // Zawsze jedna licencja (prywatny dostęp). Ilość z żądania jest ignorowana.
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       locale: "pl",
-      line_items,
-      success_url: `${url}/book/success`,
+      success_url: `${url}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${url}/checkout?canceled=1`,
-      customer: customerId,
-      customer_update: { address: "auto", shipping: "auto", name: "auto" },
-      shipping_address_collection,
-      shipping_options,
-      phone_number_collection: { enabled: true },
-      billing_address_collection: "required",
+      line_items: [
+        {
+          price_data: {
+            currency: "pln",
+            unit_amount: unitAmount,
+            product_data: { name: productName },
+          },
+          quantity: 1,
+        },
+      ],
+      customer_email: email,
       allow_promotion_codes: true,
-      metadata,
+      // Metadata mają limit długości — zapisujemy tu skróty + wersje,
+      // a pełną treść zapisujemy w tabeli order_consents (poniżej).
+      metadata: {
+        kind: "course",
+        version: "online",
+        user_email: email,
+        qty: "1",
+        licenses: "1",
+        catalog_original: String(ORIGINAL),
+        consent_terms: "1",
+        consent_terms_version: TERMS_VERSION,
+        consent_immediate: "1",
+        consent_immediate_version: IMMEDIATE_ACCESS_VERSION,
+        consents_accepted_at: acceptedAt,
+      },
     });
 
-    // Zwracamy też session.id — klient zapisze nim wstępne zamówienie.
-    return NextResponse.json({ url: session.url, sessionId: session.id }, { status: 200 });
+    // Zapis zgód (data + pełna treść). Błąd zapisu nie blokuje płatności,
+    // ale logujemy go głośno, bo to materiał dowodowy.
+    if (session.id) {
+      const { error: consentErr } = await supabaseAdmin.from("order_consents").insert([
+        {
+          stripe_session_id: session.id,
+          user_email: email,
+          product: "online",
+          terms_accepted: true,
+          terms_text: TERMS_CONSENT_TEXT,
+          terms_version: TERMS_VERSION,
+          terms_accepted_at: acceptedAt,
+          immediate_access_accepted: true,
+          immediate_access_text: IMMEDIATE_ACCESS_CONSENT_TEXT,
+          immediate_access_version: IMMEDIATE_ACCESS_VERSION,
+          immediate_access_at: acceptedAt,
+        },
+      ]);
+      if (consentErr) {
+        console.error("[checkout] order_consents insert error:", consentErr);
+      }
+    }
+
+    return NextResponse.json({ url: session.url }, { status: 200 });
   } catch (err: any) {
     console.error("[checkout] error:", err);
     return NextResponse.json(
