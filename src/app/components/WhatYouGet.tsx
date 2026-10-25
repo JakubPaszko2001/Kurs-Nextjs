@@ -156,7 +156,7 @@ const Star = (props: IconProps) => (
 
 const Check = (props: IconProps) => (
   <IconBase {...props}>
-    <path d="m5 12 4 4L19 2" />
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
   </IconBase>
 );
 
@@ -512,27 +512,27 @@ export default function WhatYouGetInteractive() {
               Zdobądź kompletny poradnik, program 4-tygodniowy oraz zestaw praktycznych ćwiczeń. Dostęp otrzymujesz natychmiast po złożeniu zamówienia.
             </p>
 
-            {/* Feature Checklist */}
-            <div className="grid sm:grid-cols-3 gap-4 text-left mb-10 max-w-2xl mx-auto bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-300">
-                <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
-                  <Check className="w-3.5 h-3.5" />
-                </div>
-                <span>Natychmiastowy dostęp</span>
-              </div>
-                            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-300">
-                <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
-                  <Check className="w-3.5 h-3.5" />
-                </div>
-                <span>Format PDF</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-300">
-                <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
-                  <Check className="w-3.5 h-3.5" />
-                </div>
-                <span>Pełna dyskrecja</span>
-              </div>
-            </div>
+                        {/* Feature Checklist */}
+                        <div className="grid sm:grid-cols-3 gap-3 sm:gap-4 mb-10 max-w-2xl mx-auto bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+                          <div className="flex items-center justify-center gap-2.5 text-xs sm:text-sm text-slate-300 text-center">
+                            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Natychmiastowy dostęp</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2.5 text-xs sm:text-sm text-slate-300 text-center">
+                            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Format PDF</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2.5 text-xs sm:text-sm text-slate-300 text-center">
+                            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Pełna dyskrecja</span>
+                          </div>
+                        </div>
 
             {/* Main CTA Button */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
