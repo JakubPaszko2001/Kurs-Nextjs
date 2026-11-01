@@ -68,9 +68,10 @@ export async function GET(req: NextRequest) {
 
   if (!rows?.length) return NextResponse.json({ processed: 0 });
 
-    const tx: Transporter = makeTransport();
+        const tx: Transporter = makeTransport();
   const smtpConfigured = isSmtpConfigured();
   let processed = 0;
+  const errors: { id: any; to: string; error: string }[] = [];
 
   for (const row of rows) {
     const n = Math.max(1, Number(row.current_chapter || 1));
@@ -119,15 +120,20 @@ export async function GET(req: NextRequest) {
           })
           .eq("id", row.id);
       }
-    } catch (e) {
+        } catch (e) {
       console.error("[partner-mail:cron] send error:", e);
-      // tu możesz dopisać zapis do tabeli logów
+      errors.push({
+        id: row.id,
+        to: row.partner_email,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
     return NextResponse.json({
     processed,
     smtpConfigured,
+    ...(errors.length ? { errors } : {}),
     warning: smtpConfigured
       ? undefined
       : "SMTP nie jest skonfigurowane — maile NIE zostały wysłane (tylko podgląd w logach). Ustaw SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM.",

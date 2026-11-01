@@ -99,7 +99,7 @@ Miłej lektury!`;
   </div>`;
 
   const info = await sendMailAsync(tx, {
-    from: process.env.MAIL_FROM || `Materiały <materialy@cozrobic.pl>`,
+    from: process.env.MAIL_FROM || "materialy@cozrobic.pl",
     to,
     subject: `Materiał – część ${n}`,
     text,
