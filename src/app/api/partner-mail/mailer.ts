@@ -38,7 +38,6 @@ export function chapterAttachment(n: number) {
   if (!chapter) return null;
   const p = path.join(process.cwd(), "public", chapter.pdf.replace(/^\//, ""));
   if (!fs.existsSync(p)) return null;
-  // Neutralna nazwa załącznika — nie zdradza tematyki.
   return { filename: `material-czesc-${n}.pdf`, content: fs.readFileSync(p) };
 }
 
@@ -53,15 +52,10 @@ export function appBaseUrl() {
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.SITE_URL ||
-    "http://localhost:3000"
+    "https://cozrobic.pl"
   );
 }
 
-/**
- * Buduje i wysyła mail z rozdziałem o numerze `n`.
- * Temat jest celowo dyskretny („Materiał – część N”) i nie ujawnia tematyki.
- * Każda wiadomość zawiera link do zatrzymania kolejnych wiadomości.
- */
 export async function sendChapterMail(
   tx: Transporter,
   to: string,
@@ -105,7 +99,7 @@ Miłej lektury!`;
   </div>`;
 
   const info = await sendMailAsync(tx, {
-    from: process.env.MAIL_FROM || `Materiały <noreply@localhost>`,
+    from: process.env.MAIL_FROM || `Materiały <materialy@cozrobic.pl>`,
     to,
     subject: `Materiał – część ${n}`,
     text,
@@ -120,4 +114,3 @@ Miłej lektury!`;
   }
   return info;
 }
-

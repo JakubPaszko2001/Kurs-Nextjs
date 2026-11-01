@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 
-// Bazowy adres – ustaw NEXT_PUBLIC_SITE_URL na Vercelu
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://kurs-nextjs.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://cozrobic.pl";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

@@ -1,7 +1,7 @@
 import React from "react";
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://kurs-nextjs.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://cozrobic.pl";
 
 const productSchema = {
   "@context": "https://schema.org",

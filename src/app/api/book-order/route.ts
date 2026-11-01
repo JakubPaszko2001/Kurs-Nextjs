@@ -21,7 +21,7 @@ function baseUrl(req: NextRequest) {
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.SITE_URL ||
     req.headers.get("origin") ||
-    "http://localhost:3000"
+    "https://cozrobic.pl"
   );
 }
 

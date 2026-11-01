@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const stripe = new Stripe(stripeKey);
 
   const unitAmount = Number(body.subtotal);
@@ -39,6 +38,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+  const origin =
+    req.headers.get("origin") ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://cozrobic.pl";
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,

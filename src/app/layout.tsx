@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Bazowy adres serwisu – ustaw NEXT_PUBLIC_SITE_URL na Vercelu (np. https://kurs-nextjs.vercel.app)
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://kurs-nextjs.vercel.app";
+// Bazowy adres serwisu – ustaw NEXT_PUBLIC_SITE_URL na Vercelu (np. https://cozrobic.pl)
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cozrobic.pl";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-    openGraph: {
+  openGraph: {
     type: "website",
     locale: "pl_PL",
     url: SITE_URL,
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-      manifest: "/manifest.json",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
