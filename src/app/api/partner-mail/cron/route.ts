@@ -19,6 +19,29 @@ const supabase = createClient(
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Godzina wysyłki (sztywna) w UTC — musi zgadzać się z harmonogramem crona
+// w vercel.json ("0 8 * * *" => 8:00 UTC).
+const SEND_HOUR_UTC = Number(process.env.MAIL_SEND_HOUR_UTC ?? "8");
+
+/**
+ * Zwraca najbliższe wystąpienie godziny SEND_HOUR_UTC (8:00 UTC),
+ * ale nie wcześniej niż `minTime` (czyli min. 24h od teraz).
+ * Dzięki temu każdy mail wypada codziennie o stałej godzinie,
+ * niezależnie od tego, o której odbyła się poprzednia wysyłka.
+ */
+function nextSendAtAtEight(minTime: Date): Date {
+  const now = new Date();
+  // kandydat: dzisiejsza 8:00 UTC
+  const candidate = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), SEND_HOUR_UTC, 0, 0, 0)
+  );
+  // przesuwaj o dobę aż kandydat będzie >= minTime
+  while (candidate.getTime() < minTime.getTime()) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1);
+  }
+  return candidate;
+}
+
 export async function GET(req: NextRequest) {
   const queryKey = req.nextUrl.searchParams.get("key");
   const authHeader = req.headers.get("authorization");
@@ -103,10 +126,11 @@ export async function GET(req: NextRequest) {
         if (fast) {
           next.setMinutes(next.getMinutes() + fastMinutes);
         } else {
-          next.setDate(next.getDate() + Number(row.cadence_days || 3));
-          // Twardy limit: min. 24h od TERAZ.
+          // Sztywna godzina 8:00 UTC, ale nie wcześniej niż 24h od TERAZ.
+          // Dzięki temu kolejne maile wypadają codziennie o 8:00, bez dryfu.
           const minNext = new Date(Date.now() + DAY_MS);
-          if (next.getTime() < minNext.getTime()) next.setTime(minNext.getTime());
+          const eight = nextSendAtAtEight(minNext);
+          next.setTime(eight.getTime());
         }
 
         await supabase
