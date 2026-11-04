@@ -75,6 +75,13 @@ const FeaturesList = [
   "Prywatny i dyskretny dostęp",
 ];
 
+// Cena w groszach – sterowana env, spójna z /checkout i kwotą pobieraną przez Stripe.
+const PRICE_GROSZE = Number(process.env.NEXT_PUBLIC_COURSE_PRICE_PLN ?? "14900");
+const priceZlote = (PRICE_GROSZE / 100).toLocaleString("pl-PL", {
+  minimumFractionDigits: PRICE_GROSZE % 100 === 0 ? 0 : 2,
+  maximumFractionDigits: 2,
+});
+
 const Purchase: React.FC = () => {
   return (
     <section
@@ -131,7 +138,7 @@ const Purchase: React.FC = () => {
               {/* Sekcja ceny */}
               <div className="mt-6 pt-6 border-t border-slate-800/80 text-center">
                 <div className="flex items-baseline justify-center gap-1.5">
-                  <span className="text-5xl font-black tracking-tight text-white">149</span>
+                  <span className="text-5xl font-black tracking-tight text-white">{priceZlote}</span>
                   <span className="text-2xl font-extrabold text-rose-400">zł</span>
                 </div>
                 <p className="mt-1 text-xs text-slate-400 font-medium">

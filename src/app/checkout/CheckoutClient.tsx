@@ -125,8 +125,14 @@ const CloudIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 );
 
 // Jeden produkt, jedna licencja – cena katalogowa (przekreślona) i aktualna.
-const ONLINE_ORIGINAL = 20000; // 200,00 zł
-const ONLINE_PRICE = 14900; // 149,00 zł
+// Ceny w groszach. Sterowane env (NEXT_PUBLIC_*), żeby UI zgadzało się z kwotą
+// realnie pobieraną przez Stripe (backend czyta STRIPE_COURSE_PRICE_PLN).
+const ONLINE_ORIGINAL = Number(
+  process.env.NEXT_PUBLIC_COURSE_ORIGINAL_PLN ?? "20000"
+); // 200,00 zł
+const ONLINE_PRICE = Number(
+  process.env.NEXT_PUBLIC_COURSE_PRICE_PLN ?? "14900"
+); // 149,00 zł
 
 const formatPLN = (v: number) =>
   (v / 100).toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
