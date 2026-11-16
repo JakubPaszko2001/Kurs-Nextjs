@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 
-/* --- Ikony SVG --- */
+/* Ikony SVG (lokalne komponenty) */
 const CheckIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
     viewBox="0 0 24 24"
