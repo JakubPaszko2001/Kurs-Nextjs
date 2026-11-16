@@ -3,54 +3,29 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "../lib/supabaseClient";
 
 /* --- Ikony SVG --- */
 const HeartIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-    aria-hidden="true"
-  >
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
   </svg>
 );
 
 const ArrowLeftIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <line x1="19" y1="12" x2="5" y2="12" />
     <polyline points="12 19 5 12 12 5" />
   </svg>
 );
 
 const LockIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
 );
 
 export default function AuthPage() {
-  // ▶️ Domyślnie LOGOWANIE
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -80,18 +55,17 @@ export default function AuthPage() {
         }
 
         setLoading(true);
-        const { error } = await supabase.from("users").insert([
-          {
-            email,
-            password, // PRODUKCJA: hashuj!
-            status: "unpaid",
-          },
-        ]);
+        const res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
         setLoading(false);
 
-        if (error) {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
           setIsError(true);
-          setMessage("Błąd rejestracji: " + error.message);
+          setMessage("Błąd rejestracji: " + (data?.error ?? res.statusText));
           return;
         }
 
@@ -101,7 +75,6 @@ export default function AuthPage() {
         setConfirmPassword("");
         setMode("login");
       } else {
-        // LOGIN
         setLoading(true);
         const res = await fetch("/api/login", {
           method: "POST",
@@ -131,11 +104,8 @@ export default function AuthPage() {
 
   return (
     <div className="relative min-h-screen flex flex-col justify-center items-center bg-slate-950 text-slate-100 font-sans px-4 py-12 overflow-hidden">
-      
-      {/* Tło - Ambient Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] sm:w-[800px] h-[400px] bg-gradient-to-tr from-rose-600/20 via-purple-600/15 to-indigo-600/10 blur-[160px] pointer-events-none rounded-full" />
 
-      {/* Przycisk Powrotu */}
       <div className="absolute top-6 left-6 z-20">
         <Link
           href="/"
@@ -147,8 +117,6 @@ export default function AuthPage() {
       </div>
 
       <div className="w-full max-w-md relative z-10">
-        
-        {/* Header Logo */}
         <div className="text-center mb-8 space-y-2">
           <Link href="/" className="inline-flex items-center gap-2 group">
             <div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 group-hover:bg-rose-500/20 group-hover:border-rose-500/40 transition-all">
@@ -163,13 +131,10 @@ export default function AuthPage() {
           </h2>
         </div>
 
-        {/* Karta Główna */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-rose-500 via-pink-500 to-purple-600 rounded-[28px] blur-lg opacity-30 group-hover:opacity-45 transition duration-500" />
-          
+
           <div className="relative rounded-3xl border border-rose-500/30 bg-slate-900/80 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl shadow-rose-950/40">
-            
-            {/* Przełącznik Mode (Logowanie / Rejestracja) */}
             <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800/80 rounded-2xl mb-6">
               <button
                 type="button"
@@ -201,7 +166,6 @@ export default function AuthPage() {
               </button>
             </div>
 
-            {/* Formularz */}
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 ml-1">
@@ -247,7 +211,17 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* Komunikat o błędzie lub sukcesie */}
+              {mode === "login" && (
+                <div className="text-right -mt-1">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-rose-400 hover:text-rose-300 font-semibold underline underline-offset-2"
+                  >
+                    Nie pamiętam hasła
+                  </Link>
+                </div>
+              )}
+
               {message && (
                 <div
                   className={`p-3.5 rounded-xl border text-xs font-semibold leading-relaxed text-center transition-all ${
@@ -260,7 +234,6 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* Przycisk akcji */}
               <button
                 type="submit"
                 disabled={loading}
@@ -274,7 +247,6 @@ export default function AuthPage() {
               </button>
             </form>
 
-            {/* Dolny tekst przełączający */}
             <p className="mt-6 text-center text-xs text-slate-400 font-medium">
               {mode === "login" ? (
                 <>
@@ -307,15 +279,12 @@ export default function AuthPage() {
               )}
             </p>
 
-            {/* Bezpieczny dostęp */}
             <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
               <LockIcon className="w-3.5 h-3.5 text-slate-500" />
               <span>Dyskretny i bezpieczny dostęp SSL</span>
             </div>
-
           </div>
         </div>
-
       </div>
     </div>
   );

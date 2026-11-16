@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
+import { verifyPassword, isHashed, hashPassword } from "../../lib/password";
 
 export const dynamic = "force-dynamic";
 
@@ -19,15 +20,29 @@ export async function POST(req: Request) {
     const { email, password } = await req.json();
     if (!email || !password) return fail("Brakuje email/hasła", 400);
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+
     const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("id, email, password")
-      .eq("email", email)
+      .eq("email", normalizedEmail)
       .maybeSingle();
 
     if (error) return fail("DB: " + error.message);
-    if (!user || user.password !== password) {
+    if (!user || !verifyPassword(password, user.password)) {
       return fail("Nieprawidłowy email/hasło", 401);
+    }
+
+    // Migracja: stare hasło w plaintext → zapisujemy hash.
+    if (!isHashed(user.password)) {
+      try {
+        await supabaseAdmin
+          .from("users")
+          .update({ password: hashPassword(password) })
+          .eq("id", user.id);
+      } catch (migErr) {
+        console.error("[/api/login] hash migration error:", migErr);
+      }
     }
 
     const token = await new SignJWT({ sub: String(user.id), email: user.email })
@@ -51,3 +66,4 @@ export async function POST(req: Request) {
     return fail(msg || "Internal Server Error");
   }
 }
+

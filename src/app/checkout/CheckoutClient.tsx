@@ -230,13 +230,16 @@ export default function CheckoutClient({ userEmail }: Props) {
           return;
         }
 
-        // Zapis do public.users (status: unpaid)
-        const { error } = await supabase.from("users").insert([
-          { email: authEmail.trim(), password: authPass, status: "unpaid" },
-        ]);
-        if (error) {
+        // Rejestracja przez API (hasło hashowane po stronie serwera)
+        const regRes = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: authEmail.trim(), password: authPass }),
+        });
+        if (!regRes.ok) {
+          const d = await regRes.json().catch(() => ({}));
           setAuthIsError(true);
-          setAuthMsg("Błąd rejestracji: " + error.message);
+          setAuthMsg("Błąd rejestracji: " + (d?.error ?? regRes.statusText));
           setAuthLoading(false);
           return;
         }
