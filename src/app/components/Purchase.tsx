@@ -75,11 +75,11 @@ const FeaturesList = [
   "Prywatny i dyskretny dostęp",
 ];
 
-// Cena w groszach – sterowana env, spójna z /checkout i kwotą pobieraną przez Stripe.
-const PRICE_GROSZE = Number(process.env.NEXT_PUBLIC_COURSE_PRICE_PLN ?? "14900");
+// Cena w groszach (149,00 zl).
+const PRICE_GROSZE = 14900;
 const priceZlote = (PRICE_GROSZE / 100).toLocaleString("pl-PL", {
-  minimumFractionDigits: PRICE_GROSZE % 100 === 0 ? 0 : 2,
-  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 
 const Purchase: React.FC = () => {
