@@ -1,0 +1,359 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+
+type Tab = "book" | "users";
+
+type BookOrder = Record<string, any>;
+type User = { id: any; email: string; status: string; created_at?: string };
+
+export default function AdminClient() {
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("book");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [bookOrders, setBookOrders] = useState<BookOrder[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [edit, setEdit] = useState<{ id: any; patch: Record<string, any> } | null>(
+    null
+  );
+  const [saving, setSaving] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/data", { cache: "no-store" });
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "Błąd pobierania danych.");
+      setStats(d.stats);
+      setBookOrders(d.bookOrders || []);
+      setUsers(d.users || []);
+      if (d?.errors?.book || d?.errors?.users) {
+        setErr(
+          [d.errors.book && "book_orders: " + d.errors.book, d.errors.users && "users: " + d.errors.users]
+            .filter(Boolean)
+            .join(" • ")
+        );
+      }
+    } catch (e: any) {
+      setErr(e?.message || "Błąd.");
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const logout = async () => {
+    await fetch("/api/admin/logout", { method: "POST" });
+    router.replace("/admin/login");
+  };
+
+  const startEdit = (table: Tab, row: any) => {
+    setFlash(null);
+    if (table === "book") {
+      setEdit({
+        id: row.id,
+        patch: {
+          status: row.status ?? "",
+          customer_name: row.customer_name ?? "",
+          customer_phone: row.customer_phone ?? "",
+          shipping_address_line1: row.shipping_address_line1 ?? "",
+          shipping_city: row.shipping_city ?? "",
+          shipping_postal_code: row.shipping_postal_code ?? "",
+        },
+      });
+    } else {
+      setEdit({ id: row.id, patch: { status: row.status ?? "" } });
+    }
+  };
+
+  const save = async () => {
+    if (!edit) return;
+    setSaving(true);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          table: tab === "book" ? "book_orders" : "users",
+          id: edit.id,
+          patch: edit.patch,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d?.error ?? "Nie udało się zapisać.");
+      setEdit(null);
+      setFlash("Zapisano zmiany.");
+      await load();
+    } catch (e: any) {
+      setFlash("Błąd: " + (e?.message || ""));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fmtMoney = (grosze: any, currency = "pln") => {
+    if (grosze == null) return "—";
+    const v = Number(grosze) / 100;
+    try {
+      return v.toLocaleString("pl-PL", { style: "currency", currency: (currency || "pln").toUpperCase() });
+    } catch {
+      return v.toFixed(2) + " " + currency;
+    }
+  };
+  const fmtDate = (s: any) => (s ? new Date(s).toLocaleString("pl-PL") : "—");
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 flex items-center justify-between">
+          <h1 className="text-lg font-black">Panel admina</h1>
+          <div className="flex items-center gap-3 text-sm">
+            <button onClick={load} className="text-slate-400 hover:text-white">Odśwież</button>
+            <button
+              onClick={logout}
+              className="rounded-xl bg-rose-500/90 hover:bg-rose-500 px-4 py-2 font-bold text-white"
+            >
+              Wyloguj
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+        {/* Statystyki */}
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              ["Zamówienia książki", stats.bookTotal],
+              ["Książki opłacone", stats.bookPaid],
+              ["Książki nieopłacone", stats.bookPending],
+              ["Konta", stats.usersTotal],
+              ["Kurs opłacony", stats.usersPaid],
+              ["Kurs nieopłacony", stats.usersUnpaid],
+            ].map(([label, val], i) => (
+              <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+                <div className="text-2xl font-black text-white">{String(val)}</div>
+                <div className="text-[11px] text-slate-400 mt-1 leading-tight">{label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {err && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs p-3">
+            {err}
+          </div>
+        )}
+        {flash && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs p-3">
+            {flash}
+          </div>
+        )}
+
+        {/* Zakładki */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTab("book")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold ${
+              tab === "book" ? "bg-rose-500 text-white" : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            Zamówienia książki
+          </button>
+          <button
+            onClick={() => setTab("users")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold ${
+              tab === "users" ? "bg-rose-500 text-white" : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            Konta kursu
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="text-slate-400 text-sm py-10 text-center">Ładowanie…</div>
+        ) : tab === "book" ? (
+          <div className="overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Data</th>
+                  <th className="px-3 py-2">E-mail</th>
+                  <th className="px-3 py-2">Klient</th>
+                  <th className="px-3 py-2">Adres</th>
+                  <th className="px-3 py-2">Kwota</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                      Brak zamówień.
+                    </td>
+                  </tr>
+                )}
+                {bookOrders.map((o) => (
+                  <tr key={o.id} className="border-t border-slate-800/70">
+                    <td className="px-3 py-2 text-slate-500">{o.id}</td>
+                    <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{fmtDate(o.created_at)}</td>
+                    <td className="px-3 py-2">{o.email}</td>
+                    <td className="px-3 py-2">{o.customer_name || o.shipping_name || "—"}</td>
+                    <td className="px-3 py-2 text-slate-400">
+                      {[o.shipping_address_line1, o.shipping_postal_code, o.shipping_city]
+                        .filter(Boolean)
+                        .join(", ") || o.inpost_locker || "—"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{fmtMoney(o.amount_total, o.currency)}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-lg font-bold ${
+                          o.status === "paid"
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : "bg-amber-500/15 text-amber-300"
+                        }`}
+                      >
+                        {o.status || "—"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => startEdit("book", o)} className="text-rose-400 hover:text-rose-300 font-semibold">
+                        Edytuj
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Data</th>
+                  <th className="px-3 py-2">E-mail</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-8 text-center text-slate-500">
+                      Brak kont.
+                    </td>
+                  </tr>
+                )}
+                {users.map((u) => (
+                  <tr key={u.id} className="border-t border-slate-800/70">
+                    <td className="px-3 py-2 text-slate-500">{u.id}</td>
+                    <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{fmtDate(u.created_at)}</td>
+                    <td className="px-3 py-2">{u.email}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-lg font-bold ${
+                          u.status === "paid"
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : "bg-amber-500/15 text-amber-300"
+                        }`}
+                      >
+                        {u.status || "—"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => startEdit("users", u)} className="text-rose-400 hover:text-rose-300 font-semibold">
+                        Edytuj
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
+
+      {/* Modal edycji */}
+      {edit && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur p-4"
+          onClick={() => !saving && setEdit(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-black text-white">
+              Edycja {tab === "book" ? "zamówienia" : "konta"} #{edit.id}
+            </h3>
+            <div className="mt-4 space-y-3 text-sm">
+              {Object.entries(edit.patch).map(([k, v]) => (
+                <div key={k}>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    {k}
+                  </label>
+                  {k === "status" ? (
+                    <select
+                      value={String(v)}
+                      onChange={(e) =>
+                        setEdit((prev) => prev && { ...prev, patch: { ...prev.patch, [k]: e.target.value } })
+                      }
+                      className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2"
+                    >
+                      {(tab === "book" ? ["pending", "paid", "cancelled"] : ["unpaid", "paid"]).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={String(v ?? "")}
+                      onChange={(e) =>
+                        setEdit((prev) => prev && { ...prev, patch: { ...prev.patch, [k]: e.target.value } })
+                      }
+                      className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                onClick={() => setEdit(null)}
+                disabled={saving}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={save}
+                disabled={saving}
+                className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold disabled:opacity-60"
+              >
+                {saving ? "Zapisywanie…" : "Zapisz"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
