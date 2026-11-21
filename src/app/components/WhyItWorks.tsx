@@ -1,4 +1,5 @@
 import React from 'react';
+import { DEFAULT_CONTENT } from '../lib/siteContent';
 
 /* --- Dedykowane ikony SVG --- */
 const XCircle = ({ className = 'w-5 h-5' }: { className?: string }) => (
@@ -54,31 +55,33 @@ const Quote = ({ className = 'w-5 h-5' }: { className?: string }) => (
   </svg>
 );
 
-const WhyItWorks = () => {
+const WhyItWorks = ({ content = {} }: { content?: Record<string, string> }) => {
+  const c = (key: string) => content[key] ?? DEFAULT_CONTENT[key] ?? "";
   return (
     <section id="dlaczego-to-dziala" className="py-20 md:py-28 bg-slate-950 text-slate-100 font-sans border-y border-slate-800/80 relative overflow-hidden">
-      
+
       {/* Tło i promienie światła (Ambient Glow) */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[900px] h-[400px] bg-gradient-to-tr from-rose-600/15 via-purple-600/10 to-indigo-600/5 blur-[140px] pointer-events-none rounded-full" />
       <div className="absolute bottom-10 left-10 w-80 h-80 bg-rose-500/5 blur-[120px] pointer-events-none rounded-full" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-        
+
         {/* Nagłówek sekcji */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-widest shadow-sm">
             <HelpCircle className="w-4 h-4 text-rose-400" />
-            Rozsądne podejście
+            {c('why_badge')}
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
-            Dlaczego to <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">działa?</span>
+            {c('why_title_lead')}{" "}
+            <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">{c('why_title_highlight')}</span>
           </h2>
           <div className="w-20 h-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500 mx-auto rounded-full" />
         </div>
 
         {/* Karty Porównawcze: Czym to NIE jest vs Czym to JEST */}
         <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl mx-auto mb-12">
-          
+
           {/* Karta 1: Czym to NIE jest */}
           <div className="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-rose-500/30 hover:border-rose-500/50 p-7 sm:p-9 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col justify-between before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-gradient-to-r before:from-rose-500 before:via-pink-500 before:to-purple-500">
             <div>
@@ -87,24 +90,20 @@ const WhyItWorks = () => {
                   <XCircle className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-rose-400 uppercase tracking-wider block">Czym to nie jest</span>
-                  <h3 className="text-xl font-bold text-white">Bez złudzeń i presji</h3>
+                  <span className="text-xs font-bold text-rose-400 uppercase tracking-wider block">{c('why_not_badge')}</span>
+                  <h3 className="text-xl font-bold text-white">{c('why_not_title')}</h3>
                 </div>
               </div>
 
               <div className="space-y-4 text-slate-300 text-sm sm:text-base leading-relaxed">
                 <div className="flex items-start gap-3.5 bg-slate-950/60 p-4 sm:p-5 rounded-2xl border border-rose-500/15">
                   <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                  <p>
-                    To nie jest poradnik o tym, żeby grzecznie czekać, przestać mieć potrzeby i pogodzić się z brakiem seksu.
-                  </p>
+                  <p>{c('why_not_item_1')}</p>
                 </div>
 
                 <div className="flex items-start gap-3.5 bg-slate-950/60 p-4 sm:p-5 rounded-2xl border border-rose-500/15">
                   <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                  <p>
-                    Nie jest to również zestaw tanich sztuczek, które mają zmusić drugą osobę do zbliżenia. Presja, pretensje i manipulacja zwykle prowadzą do jeszcze większego dystansu.
-                  </p>
+                  <p>{c('why_not_item_2')}</p>
                 </div>
               </div>
             </div>
@@ -118,24 +117,20 @@ const WhyItWorks = () => {
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-rose-400 uppercase tracking-wider block">Czym to jest</span>
-                  <h3 className="text-xl font-bold text-white">Sprawdzony plan działania</h3>
+                  <span className="text-xs font-bold text-rose-400 uppercase tracking-wider block">{c('why_is_badge')}</span>
+                  <h3 className="text-xl font-bold text-white">{c('why_is_title')}</h3>
                 </div>
               </div>
 
               <div className="space-y-4 text-slate-300 text-sm sm:text-base leading-relaxed">
                 <div className="flex items-start gap-3.5 bg-slate-950/60 p-4 sm:p-5 rounded-2xl border border-rose-500/15">
                   <Sparkles className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                  <p>
-                    Ten plan pokazuje, dlaczego ochota może zanikać, które zachowania pogarszają sytuację i co możesz zrobić inaczej.
-                  </p>
+                  <p>{c('why_is_item_1')}</p>
                 </div>
 
                 <div className="flex items-start gap-3.5 bg-slate-950/60 p-4 sm:p-5 rounded-2xl border border-rose-500/15">
                   <Target className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                  <p>
-                    Nie możesz włączyć pożądania jednym zdaniem. Możesz jednak usunąć część rzeczy, które je blokują, odzyskać inicjatywę i stworzyć warunki, w których seks ma znacznie większą szansę ponownie stać się naturalną częścią Waszego związku.
-                  </p>
+                  <p>{c('why_is_item_2')}</p>
                 </div>
               </div>
             </div>
@@ -152,10 +147,10 @@ const WhyItWorks = () => {
 
             <div className="relative z-10 max-w-xl mx-auto space-y-2">
               <p className="text-lg sm:text-xl md:text-2xl font-extrabold text-white leading-snug tracking-tight">
-                „Koniec ze zgadywaniem.”
+                {c('why_quote_title')}
               </p>
               <p className="text-base sm:text-lg text-rose-200/90 font-medium leading-relaxed">
-                Dajemy Ci plan, z którym wreszcie możesz zacząć działać.
+                {c('why_quote_text')}
               </p>
             </div>
           </div>

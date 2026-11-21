@@ -1,4 +1,5 @@
 import React from 'react';
+import { DEFAULT_CONTENT } from '../lib/siteContent';
 
 const ShoppingBag = ({ className = 'w-6 h-6' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -28,37 +29,35 @@ const ArrowRight = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
   </svg>
 );
 
-const HowItWorks = () => {
+type StepContent = Record<string, string>;
+
+const HowItWorks = ({ content = {} }: { content?: StepContent }) => {
+  const c = (key: string) => content[key] ?? DEFAULT_CONTENT[key] ?? "";
+
   const steps = [
     {
-      number: "01",
-      title: "Kupujesz i otwierasz dostęp",
-      description:
-        "Otrzymujesz kompletny przewodnik i sprawdzasz, dlaczego Twoje dotychczasowe próby mogły nie przynosić efektu.",
+      number: c("hiw_step1_number"),
+      title: c("hiw_step1_title"),
+      description: c("hiw_step1_desc"),
       icon: ShoppingBag,
-      badge: "Krok 1",
       glowColor: "from-rose-500/20 to-pink-500/5",
       borderColor: "group-hover:border-rose-500/50",
       iconBg: "bg-rose-500/10 text-rose-400 border-rose-500/20",
     },
     {
-      number: "02",
-      title: "Odkrywasz, co gasi ochotę",
-      description:
-        "Rozpoznajesz błędy, napięcia i bariery, przez które druga osoba coraz częściej mówi „nie teraz”.",
+      number: c("hiw_step2_number"),
+      title: c("hiw_step2_title"),
+      description: c("hiw_step2_desc"),
       icon: Search,
-      badge: "Krok 2",
       glowColor: "from-purple-500/20 to-indigo-500/5",
       borderColor: "group-hover:border-purple-500/50",
       iconBg: "bg-purple-500/10 text-purple-400 border-purple-500/20",
     },
     {
-      number: "03",
-      title: "Zaczynasz działać inaczej",
-      description:
-        "Wprowadzasz konkretne zmiany, które mogą pomóc odbudować napięcie, pożądanie i częstszą bliskość.",
+      number: c("hiw_step3_number"),
+      title: c("hiw_step3_title"),
+      description: c("hiw_step3_desc"),
       icon: Sparkles,
-      badge: "Krok 3",
       glowColor: "from-amber-500/20 to-rose-500/5",
       borderColor: "group-hover:border-amber-500/50",
       iconBg: "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -71,21 +70,21 @@ const HowItWorks = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-r from-rose-600/10 to-purple-600/10 blur-[120px] pointer-events-none rounded-full" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        
+
         {/* Header Section */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            Prosty proces
+            {c("hiw_badge")}
           </span>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-400">
-            Jak to działa?
+            {c("hiw_title")}
           </h2>
           <div className="h-1 w-12 bg-gradient-to-r from-rose-500 to-purple-500 mx-auto rounded-full mt-2" />
         </div>
 
         {/* Steps Grid */}
         <div className="mt-16 grid md:grid-cols-3 gap-6 lg:gap-8 relative">
-          
+
           {/* Connector Line for Desktop */}
           <div className="hidden md:block absolute top-1/2 left-12 right-12 h-0.5 -translate-y-8 bg-gradient-to-r from-rose-500/20 via-purple-500/20 to-amber-500/20 z-0 pointer-events-none" />
 

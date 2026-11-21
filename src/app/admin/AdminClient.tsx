@@ -3,7 +3,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "book" | "users";
+type Tab = "book" | "users" | "content";
+
+type ContentField = {
+  key: string;
+  label: string;
+  group: string;
+  type: "text" | "textarea";
+  defaultValue: string;
+};
 
 type BookOrder = Record<string, any>;
 type User = { id: any; email: string; status: string; created_at?: string };
@@ -21,6 +29,12 @@ export default function AdminClient() {
   );
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+
+  // --- Treści strony ---
+  const [contentFields, setContentFields] = useState<ContentField[]>([]);
+  const [contentValues, setContentValues] = useState<Record<string, string>>({});
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentSaving, setContentSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,12 +68,61 @@ export default function AdminClient() {
     load();
   }, [load]);
 
+  const loadContent = useCallback(async () => {
+    setContentLoading(true);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/content", { cache: "no-store" });
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "Błąd pobierania treści.");
+      setContentFields(d.fields || []);
+      setContentValues(d.values || {});
+      if (d?.dbError) {
+        setFlash("Uwaga baza: " + d.dbError + " (działają teksty domyślne)");
+      }
+    } catch (e: any) {
+      setFlash("Błąd: " + (e?.message || ""));
+    } finally {
+      setContentLoading(false);
+    }
+  }, [router]);
+
+  // Ładuj treści po przejściu na zakładkę
+  useEffect(() => {
+    if (tab === "content" && contentFields.length === 0) {
+      loadContent();
+    }
+  }, [tab, contentFields.length, loadContent]);
+
+  const saveContent = async () => {
+    setContentSaving(true);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ values: contentValues }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d?.error ?? "Nie udało się zapisać treści.");
+      setFlash("Zapisano treści. Odśwież stronę główną, aby zobaczyć zmiany.");
+    } catch (e: any) {
+      setFlash("Błąd: " + (e?.message || ""));
+    } finally {
+      setContentSaving(false);
+    }
+  };
+
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
     router.replace("/admin/login");
   };
 
-  const startEdit = (table: Tab, row: any) => {
+  const startEdit = (table: "book" | "users", row: any) => {
     setFlash(null);
     if (table === "book") {
       setEdit({
@@ -181,10 +244,86 @@ export default function AdminClient() {
           >
             Konta kursu
           </button>
+          <button
+            onClick={() => setTab("content")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold ${
+              tab === "content" ? "bg-rose-500 text-white" : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            Treści strony
+          </button>
         </div>
 
         {loading ? (
           <div className="text-slate-400 text-sm py-10 text-center">Ładowanie…</div>
+        ) : tab === "content" ? (
+          <div className="space-y-6">
+            {contentLoading ? (
+              <div className="text-slate-400 text-sm py-10 text-center">Ładowanie treści…</div>
+            ) : (
+              (() => {
+                const groups = Array.from(
+                  new Set(contentFields.map((f) => f.group))
+                );
+                return groups.map((g) => (
+                  <div key={g} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:p-6">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-rose-400 mb-4">
+                      {g}
+                    </h3>
+                    <div className="space-y-4">
+                      {contentFields
+                        .filter((f) => f.group === g)
+                        .map((f) => (
+                          <div key={f.key}>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                              {f.label}
+                            </label>
+                            {f.type === "textarea" ? (
+                              <textarea
+                                value={contentValues[f.key] ?? ""}
+                                onChange={(e) =>
+                                  setContentValues((prev) => ({ ...prev, [f.key]: e.target.value }))
+                                }
+                                rows={3}
+                                className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                              />
+                            ) : (
+                              <input
+                                value={contentValues[f.key] ?? ""}
+                                onChange={(e) =>
+                                  setContentValues((prev) => ({ ...prev, [f.key]: e.target.value }))
+                                }
+                                className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                              />
+                            )}
+                            <div className="mt-1 text-[10px] text-slate-600">
+                              klucz: {f.key}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ));
+              })()
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={loadContent}
+                disabled={contentLoading || contentSaving}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold"
+              >
+                Odrzuć zmiany
+              </button>
+              <button
+                onClick={saveContent}
+                disabled={contentSaving}
+                className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold disabled:opacity-60"
+              >
+                {contentSaving ? "Zapisywanie…" : "Zapisz treści"}
+              </button>
+            </div>
+          </div>
         ) : tab === "book" ? (
           <div className="overflow-x-auto rounded-2xl border border-slate-800">
             <table className="w-full text-left text-xs sm:text-sm">

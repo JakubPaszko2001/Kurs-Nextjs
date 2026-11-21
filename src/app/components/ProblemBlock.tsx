@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { DEFAULT_CONTENT } from '../lib/siteContent';
 
 const ArrowDownIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg
@@ -17,8 +18,8 @@ const ArrowDownIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
     <polyline points="19 12 12 19 5 12" />
   </svg>
 );
-
-const ProblemBlock: React.FC = () => {
+const ProblemBlock: React.FC<{ content?: Record<string, string> }> = ({ content = {} }) => {
+  const c = (key: string) => content[key] ?? DEFAULT_CONTENT[key] ?? "";
   const scrollToPurchase = () => {
     const el = document.getElementById("kup-teraz");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -31,20 +32,35 @@ const ProblemBlock: React.FC = () => {
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 relative z-10 text-center">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight">
+
+
           Najgorsza nie jest jedna odmowa.{" "}
           <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+
+
             Najgorsze jest to, co dzieje się później.
           </span>
         </h2>
 
         <div className="mt-8 space-y-5 text-slate-300 text-base sm:text-lg leading-relaxed text-left sm:text-center">
           <p>
+
+
+
+
+
             Najpierw słyszysz «nie dzisiaj». Później przestajesz pytać, bo nie
             chcesz znowu poczuć się odrzucony albo odrzucona. Dotyk staje się
             ostrożny. Rozmowy coraz krótsze. Jedna osoba czuje presję, druga
             frustrację.
           </p>
           <p>
+
+
+
+
+
+
             W końcu oboje zaczynacie zachowywać się tak, jakby seks przestał być
             ważny. Ale problem nie znika.{" "}
             <span className="text-white font-semibold">
@@ -54,6 +70,9 @@ const ProblemBlock: React.FC = () => {
         </div>
 
         <p className="mt-10 text-lg sm:text-xl font-bold text-white leading-relaxed">
+
+
+
           Ten plan pomoże Ci przerwać ten schemat, zanim brak seksu stanie się
           Waszą nową normalnością.
         </p>
@@ -63,7 +82,8 @@ const ProblemBlock: React.FC = () => {
           onClick={scrollToPurchase}
           className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-400 hover:to-pink-500 text-white font-extrabold px-8 py-4 text-base sm:text-lg shadow-xl shadow-rose-500/25 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
         >
-          <span>Nie chcę już tkwić w tym schemacie</span>
+
+          <span>{c('problem_cta_text')}</span>
           <ArrowDownIcon className="w-4 h-4" />
         </button>
       </div>

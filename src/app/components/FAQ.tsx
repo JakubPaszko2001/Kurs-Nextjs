@@ -1,19 +1,11 @@
 "use client";
 
 import React from "react";
+import { DEFAULT_CONTENT } from '../lib/siteContent';
 
 /* --- Ikona Pytania / Pomocy --- */
 const HelpCircleIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <circle cx="12" cy="12" r="10" />
     <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
     <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -21,91 +13,42 @@ const HelpCircleIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 const FAQIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <path d="M6 9l6 6 6-6" />
   </svg>
 );
 
-const faqItems = [
-  {
-    question: "Czy to kurs?",
-    answer:
-      "Nie. To konkretny przewodnik i 4-tygodniowy plan działania. Nie musisz oglądać wielu godzin nagrań. Czytasz kolejne części i od razu wybierasz rozwiązania pasujące do Waszej sytuacji.",
-  },
-  {
-    question: "Czy ten poradnik jest dla mnie, jeśli prawie zawsze to ja inicjuję?",
-    answer:
-      "Tak. Pomoże Ci zrozumieć, dlaczego druga osoba może unikać zbliżenia, które działania pogarszają sytuację i jak odzyskać inicjatywę bez naciskania.",
-  },
-  {
-    question: "Czy po zastosowaniu planu druga osoba będzie chciała częściej?",
-    answer:
-      "Nie da się uczciwie zagwarantować reakcji drugiej osoby. Plan pomaga jednak rozpoznać to, co może blokować ochotę, i wprowadzić zmiany zwiększające szanse na powrót pożądania oraz bliskości.",
-  },
-  {
-    question: "Czy druga połówka musi wiedzieć, że korzystam z poradnika?",
-    answer:
-      "Nie. Możesz zacząć samodzielnie. Poradnik nie opiera się na ukrytych sztuczkach, tylko na zmianie sposobu działania, rozmowy i budowania bliskości.",
-  },
-    {
-    question: "Co, jeśli problem może wynikać z bólu, choroby albo leków?",
-    answer:
-      "Poradnik pomoże Ci zauważyć takie sygnały, ale nie zastępuje diagnozy. W takiej sytuacji właściwym krokiem jest konsultacja z lekarzem lub odpowiednim specjalistą.",
-  },
-  {
-    question: "Jak działa gwarancja i co, jeśli poradnik mi nie pomoże?",
-    answer:
-      "Masz 14 dni na sprawdzenie całego planu. Jeśli po zapoznaniu się z całością uznasz, że nie dostajesz konkretnego planu działania, napisz na cozrobic@viholding.pl w ciągu 14 dni od zakupu. Zwrócimy 149 zł, a dostęp zostanie zamknięty. Gwarancja dotyczy dostępu online i została opisana w regulaminie (§8a).",
-  },
-  {
-    question: "Czy mogę zaprosić drugą osobę do korzystania z materiałów?",
-    answer:
-      "Tak. Po zakupie w swoim panelu możesz wygenerować prywatny link z zaproszeniem do drugiej osoby lub wpisać jej e-mail, aby rozdziały były wysyłane etapami (co kilka dni). Dzięki temu partner czy partnerka poznaje materiał we własnym tempie, bez presji.",
-  },
-  {
-    question: "Chcę też książkę w wersji drukowanej. Jak ją zamówić?",
-    answer:
-      "Książkę zamówisz osobno — bezpośrednio po zakupie dostępu online lub później ze swojego panelu, przez stronę zamówienia. Dostęp online i książka to dwa odrębne produkty: dostęp aktywuje się natychmiast, a książkę wysyłamy kurierem lub do paczkomatu InPost.",
-  },
-];
+const FAQ = ({ content = {} }: { content?: Record<string, string> }) => {
+  const c = (key: string) => content[key] ?? DEFAULT_CONTENT[key] ?? "";
+  const faqItems = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+    question: c(`faq_q${n}_question`),
+    answer: c(`faq_q${n}_answer`),
+  }));
 
-const FAQ = () => {
   return (
-    <section
-      id="faq"
-      className="relative overflow-hidden bg-slate-950 py-20 md:py-32 text-slate-100 font-sans border-t border-slate-800/80"
-    >
+    <section id="faq" className="relative overflow-hidden bg-slate-950 py-20 md:py-32 text-slate-100 font-sans border-t border-slate-800/80">
       {/* Tło - Ambient Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-purple-600/10 via-rose-600/15 to-indigo-600/10 blur-[150px] pointer-events-none rounded-full" />
 
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 relative z-10">
-        
+
         {/* Nagłówek sekcji */}
         <div className="text-center max-w-2xl mx-auto space-y-3">
           <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-widest shadow-sm">
-            <HelpCircleIcon className="w-4 h-4 text-rose-400" /> Warto wiedzieć
+            <HelpCircleIcon className="w-4 h-4 text-rose-400" /> {c('faq_badge')}
           </span>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">
-            Najczęściej zadawane pytania
+            {c('faq_title')}
           </h2>
 
           <p className="text-slate-400 text-sm sm:text-base">
-            Masz inne pytanie? Napisz do nas:{" "}
+            {c('faq_contact_label')}{" "}
             <a
-              href="mailto:cozrobic@viholding.pl"
+              href={`mailto:${c('footer_email')}`}
               className="text-rose-400 hover:text-rose-300 font-semibold underline underline-offset-4 decoration-rose-500/40 transition-colors"
             >
-              cozrobic@viholding.pl
+              {c('footer_email')}
             </a>
           </p>
         </div>

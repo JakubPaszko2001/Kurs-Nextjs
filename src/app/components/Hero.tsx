@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { DEFAULT_CONTENT } from '../lib/siteContent';
 
 /* --- Ikony SVG --- */
 const ArrowRight = ({ className = 'w-5 h-5' }: { className?: string }) => (
@@ -40,7 +41,10 @@ const HeartsIcon = ({ className = 'w-10 h-10' }: { className?: string }) => (
   </svg>
 );
 
-const Hero = () => {
+type HeroContent = Record<string, string>;
+
+const Hero = ({ content = {} }: { content?: HeroContent }) => {
+  const c = (key: string) => content[key] ?? DEFAULT_CONTENT[key] ?? "";
   return (
     <section className="relative overflow-hidden bg-slate-950 text-slate-100 font-sans border-b border-slate-800/80" id="top">
       {/* Background Ambient Glows */}
@@ -49,25 +53,27 @@ const Hero = () => {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-16 md:pt-28 md:pb-24 relative z-10">
         <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
-          
+
           {/* Lewa kolumna: Nagłówki i CTA */}
           <div className="space-y-6 text-left">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-widest shadow-sm">
-              <Sparkles className="w-4 h-4 text-rose-400" /> Przewodnik dla par i indywidualnie
+              <Sparkles className="w-4 h-4 text-rose-400" /> {c('hero_badge')}
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-white">
-                            Co zrobić, gdy Twoja <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">druga połówka nie chce ?</span>
-
+              {c('hero_title_lead')}{" "}
+              <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+                {c('hero_title_highlight')}
+              </span>
             </h1>
 
             <div className="space-y-4 text-slate-300 text-base sm:text-lg leading-relaxed">
               <p className="bg-slate-900/40 border border-slate-800/60 p-4 rounded-2xl backdrop-blur-sm">
-                Ty masz ochotę. Druga osoba znowu mówi „nie teraz”. A Ty coraz częściej zastanawiasz się, czy za chwilę seks całkowicie zniknie z Waszego związku.
+                {c('hero_paragraph_1')}
               </p>
-              
+
               <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-                Nie czekaj, aż kolejne odmowy, frustracja i napięcie staną się codziennością. Poznaj konkretny plan, który pokaże Ci, co naprawdę może zabijać ochotę i co zmienić, aby zwiększyć szanse na częstszy seks oraz powrót prawdziwej bliskości.
+                {c('hero_paragraph_2')}
               </p>
             </div>
 
@@ -77,7 +83,7 @@ const Hero = () => {
                 href="/checkout"
                 className="group relative inline-flex justify-center items-center gap-3 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-400 hover:to-pink-500 text-white font-extrabold px-8 py-4 text-base sm:text-lg shadow-xl shadow-rose-500/25 transition-all duration-300 hover:scale-[1.02] hover:shadow-rose-500/40 active:scale-[0.98]"
               >
-                                <span>Chcę odzyskać seks i bliskość</span>
+                <span>{c('hero_cta_text')}</span>
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
@@ -86,9 +92,9 @@ const Hero = () => {
           {/* Prawa kolumna: Widok opisu/karty */}
           <div className="relative">
             <div className="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-rose-500/30 p-8 sm:p-10 backdrop-blur-xl shadow-2xl shadow-rose-950/20 before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-gradient-to-r before:from-rose-500 before:via-pink-500 before:to-purple-500">
-              
+
               <div className="flex flex-col items-center text-center space-y-6">
-                
+
                 {/* Ikona serduszek w ramce */}
                 <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-rose-500/20 to-purple-500/20 border border-rose-500/30 flex items-center justify-center shadow-inner">
                   <HeartsIcon className="w-10 h-10" />
@@ -96,23 +102,24 @@ const Hero = () => {
 
                 <div className="space-y-2">
                   <span className="text-xs font-bold uppercase tracking-widest text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
-                    Szybki start
+                    {c('hero_card_badge')}
                   </span>
-                  <h3 className="text-2xl font-black text-white">Dyskretny plan działania</h3>
+                  <h3 className="text-2xl font-black text-white">{c('hero_card_title')}</h3>
                 </div>
 
                 <div className="w-full space-y-3 text-left">
                   <div className="flex items-start gap-3 bg-slate-950/60 p-4 rounded-2xl border border-rose-500/15">
                     <CheckCircle2 className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                     <p className="text-slate-300 text-sm leading-relaxed">
-                      <strong className="text-white">Bez lania wody:</strong> Konkretne wskazówki, scenariusze rozmów i 4-tygodniowy plan, który możesz zacząć wdrażać od dzisiaj.
+                      <strong className="text-white">{c('hero_card_item_1_title')}</strong>{" "}
+                      {c('hero_card_item_1_text')}
                     </p>
                   </div>
 
                   <div className="flex items-start gap-3 bg-slate-950/60 p-4 rounded-2xl border border-rose-500/15">
                     <CheckCircle2 className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                     <p className="text-slate-300 text-sm leading-relaxed">
-                      Bez błagania. Bez kolejnych awantur. Bez udawania, że problemu nie ma.
+                      {c('hero_card_item_2_text')}
                     </p>
                   </div>
                 </div>

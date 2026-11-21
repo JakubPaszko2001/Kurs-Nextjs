@@ -10,9 +10,12 @@ import FAQ from "./components/FAQ";
 import FinalCTA from "./components/FinalCTA";
 import Footer from "./components/Footer";
 import StructuredData from "./components/StructuredData";
+import { getSiteContent } from "./lib/siteContent";
 
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+
+export const dynamic = "force-dynamic";
 
 type AuthInfo = {
   loggedIn: boolean;
@@ -41,24 +44,25 @@ async function getAuth(): Promise<AuthInfo> {
 
 export default async function Page() {
   const { loggedIn, email } = await getAuth();
+  const content = await getSiteContent();
 
   return (
     <div className="bg-[#0f1222] text-white antialiased">
-      {/* Przekazujemy info do Headera (upewnij się, że Header przyjmuje te propsy) */}
+      {/* Przekazujemy info do Headera */}
       <Header loggedIn={loggedIn} userEmail={email ?? undefined} />
 
       <main>
-        <Hero />
-        <HowItWorks />
-        <WhatYouGet />
-                <WhyItWorks />
-        <ProblemBlock />
-        <Purchase />
-        <FAQ />
-        <FinalCTA />
+        <Hero content={content} />
+        <HowItWorks content={content} />
+        <WhatYouGet content={content} />
+        <WhyItWorks content={content} />
+        <ProblemBlock content={content} />
+        <Purchase content={content} />
+        <FAQ content={content} />
+        <FinalCTA content={content} />
       </main>
 
-      <Footer />
+      <Footer content={content} />
 
       <StructuredData />
     </div>
