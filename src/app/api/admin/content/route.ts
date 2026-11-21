@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "../../../lib/adminAuth";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
-import { CONTENT_FIELDS, DEFAULT_CONTENT } from "../../../lib/siteContent";
+import { CONTENT_FIELDS, DEFAULT_CONTENT, snapshotContent, getSiteContent, diffContent } from "../../../lib/siteContent";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -55,6 +55,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Brak dozwolonych pól." }, { status: 400 });
     }
 
+    // Zapisujemy bieżący stan jako wersję (żeby dało się cofnąć),
+    // wraz z listą pól, które ten zapis zmieni.
+    const before = await getSiteContent();
+    const after = { ...before };
+    for (const r of rows) after[r.key] = r.value;
+    const changes = diffContent(before, after);
+
+    if (Object.keys(changes).length > 0) {
+      await snapshotContent({ label: "Zapis z panelu", changes });
+    }
+
     const { error } = await supabaseAdmin
       .from("site_content")
       .upsert(rows, { onConflict: "key" });
@@ -64,9 +75,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, saved: rows.length });
+    return NextResponse.json({ ok: true, saved: rows.length, changed: Object.keys(changes).length });
   } catch (e) {
     console.error("[admin/content] error:", e);
     return NextResponse.json({ error: "Błąd serwera." }, { status: 500 });
   }
 }
+

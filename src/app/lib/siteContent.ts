@@ -683,3 +683,141 @@ export async function getSiteContent(): Promise<Record<string, string>> {
   }
   return merged;
 }
+
+
+// ============================================================
+//  WERSJONOWANIE TREŚCI
+// ============================================================
+
+export type ContentVersion = {
+  id: number;
+  created_at: string;
+  saved_by: string | null;
+  label: string | null;
+  changed_count: number;
+  changes: Record<string, string>; // key -> etykieta pola
+};
+
+/** Pojedyncza zmiana: { key: labelPola } */
+export type ContentChange = Record<string, string>;
+
+function labelFor(key: string): string {
+  const f = CONTENT_FIELDS.find((x) => x.key === key);
+  return f ? f.label : key;
+}
+
+/**
+ * Porównuje dwa stany i zwraca mapę zmian { key: label }.
+ * (Wartość nie trafia do opisu – tylko nazwa pola.)
+ */
+export function diffContent(
+  before: Record<string, string>,
+  after: Record<string, string>
+): ContentChange {
+  const changes: ContentChange = {};
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of keys) {
+    const a = before[key] ?? "";
+    const b = after[key] ?? "";
+    if (a !== b) changes[key] = labelFor(key);
+  }
+  return changes;
+}
+
+/**
+ * Zapisuje snapshot aktualnego stanu bazy (tylko wiersze obecne w DB).
+ * Wywoływane PRZED nadpisaniem treści, żeby można było wrócić.
+ */
+export async function snapshotContent(opts?: {
+  savedBy?: string | null;
+  label?: string | null;
+  changes?: ContentChange;
+}): Promise<void> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("site_content")
+      .select("key, value");
+    if (error) {
+      console.error("[siteContent] snapshot read error:", error.message);
+      return;
+    }
+    const snapshot: Record<string, string> = {};
+    for (const row of data ?? []) {
+      if (row?.key) snapshot[row.key] = String(row.value ?? "");
+    }
+    const changes = opts?.changes ?? {};
+    const changedCount = Object.keys(changes).length;
+    const { error: insErr } = await supabaseAdmin
+      .from("site_content_versions")
+      .insert({
+        snapshot,
+        saved_by: opts?.savedBy ?? null,
+        label: opts?.label ?? null,
+        changes,
+        changed_count: changedCount,
+      });
+    if (insErr) {
+      console.error("[siteContent] snapshot insert error:", insErr.message);
+    }
+  } catch (e) {
+    console.error("[siteContent] snapshot unexpected:", e);
+  }
+}
+
+/** Lista wersji (bez pełnego snapshotu), najnowsze pierwsze. */
+export async function listVersions(limit = 40): Promise<ContentVersion[]> {
+  const { data, error } = await supabaseAdmin
+    .from("site_content_versions")
+    .select("id, created_at, saved_by, label, changed_count, changes")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ContentVersion[];
+}
+
+/** Pobiera snapshot konkretnej wersji. */
+export async function getVersionSnapshot(
+  id: number
+): Promise<Record<string, string> | null> {
+  const { data, error } = await supabaseAdmin
+    .from("site_content_versions")
+    .select("snapshot")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.snapshot) return null;
+  return data.snapshot as Record<string, string>;
+}
+
+/**
+ * Przywraca wersję: najpierw snapshot bieżącego stanu (można cofnąć),
+ * potem nadpisuje treść zapisanym stanem.
+ */
+export async function restoreVersion(id: number): Promise<number> {
+  const snapshot = await getVersionSnapshot(id);
+  if (!snapshot) throw new Error("Nie znaleziono wersji.");
+
+  // Snapshot obecnego stanu - żeby przywrócenie też dało się cofnąć.
+  const before = await getSiteContent();
+  const changes = diffContent(before, snapshot);
+  await snapshotContent({
+    label: `Przywrócono wersję #${id}`,
+    changes,
+  });
+
+  const now = new Date().toISOString();
+  const rows = Object.entries(snapshot).map(([key, value]) => ({
+    key,
+    value: String(value ?? ""),
+    updated_at: now,
+  }));
+
+  if (rows.length > 0) {
+    const { error } = await supabaseAdmin
+      .from("site_content")
+      .upsert(rows, { onConflict: "key" });
+    if (error) throw new Error(error.message);
+  }
+
+  return rows.length;
+}

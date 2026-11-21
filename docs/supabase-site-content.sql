@@ -30,5 +30,30 @@ create trigger trg_site_content_updated
   for each row execute function public.set_site_content_updated_at();
 
 -- ============================================================
+--  WERSJONOWANIE TREŚCI
+--  Każdy zapis tworzy snapshot; można przywrócić dowolną wersję.
+-- ============================================================
+create table if not exists public.site_content_versions (
+  id          bigserial primary key,
+  snapshot    jsonb not null,            -- pełny stan treści w tej wersji
+  saved_by    text,                      -- opcjonalnie: kto zapisał
+  label       text,                      -- opcjonalnie: krótki opis
+  created_at  timestamptz not null default now()
+);
+
+-- Opis zmian: co konkretnie zmieniło się w tej wersji
+alter table public.site_content_versions
+  add column if not exists changes jsonb not null default '{}'::jsonb;
+alter table public.site_content_versions
+  add column if not exists changed_count int not null default 0;
+
+create index if not exists idx_site_content_versions_created
+  on public.site_content_versions (created_at desc);
+
+-- RLS: dostęp wyłącznie przez service role (API admina)
+alter table public.site_content_versions enable row level security;
+
+-- ============================================================
 --  KONIEC
 -- ============================================================
+

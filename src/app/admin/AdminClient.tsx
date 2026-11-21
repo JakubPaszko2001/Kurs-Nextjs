@@ -15,6 +15,14 @@ type ContentField = {
 
 type BookOrder = Record<string, any>;
 type User = { id: any; email: string; status: string; created_at?: string };
+type ContentVersion = {
+  id: number;
+  created_at: string;
+  saved_by?: string | null;
+  label?: string | null;
+  changed_count?: number;
+  changes?: Record<string, string>;
+};
 
 export default function AdminClient() {
   const router = useRouter();
@@ -35,6 +43,11 @@ export default function AdminClient() {
   const [contentValues, setContentValues] = useState<Record<string, string>>({});
   const [contentLoading, setContentLoading] = useState(false);
   const [contentSaving, setContentSaving] = useState(false);
+  // --- Historia wersji ---
+  const [contentVersions, setContentVersions] = useState<ContentVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [showVersions, setShowVersions] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,6 +108,7 @@ export default function AdminClient() {
   useEffect(() => {
     if (tab === "content" && contentFields.length === 0) {
       loadContent();
+      loadVersions();
     }
   }, [tab, contentFields.length, loadContent]);
 
@@ -110,10 +124,53 @@ export default function AdminClient() {
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d?.error ?? "Nie udało się zapisać treści.");
       setFlash("Zapisano treści. Odśwież stronę główną, aby zobaczyć zmiany.");
+      loadVersions();
     } catch (e: any) {
       setFlash("Błąd: " + (e?.message || ""));
     } finally {
       setContentSaving(false);
+    }
+  };
+
+  const loadVersions = useCallback(async () => {
+    setVersionsLoading(true);
+    try {
+      const res = await fetch("/api/admin/versions", { cache: "no-store" });
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "Błąd pobierania wersji.");
+      setContentVersions(d.versions || []);
+    } catch (e: any) {
+      setFlash("Błąd wersji: " + (e?.message || ""));
+    } finally {
+      setVersionsLoading(false);
+    }
+  }, [router]);
+
+  const restoreFromVersion = async (id: number) => {
+    if (!confirm(`Przywrócić wersję #${id}? Bieżący stan zostanie zapisany jako nowa wersja (będzie można cofnąć).`)) {
+      return;
+    }
+    setRestoringId(id);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/versions/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d?.error ?? "Nie udało się przywrócić wersji.");
+      setFlash("Przywrócono wersję #" + id + ". Odświeżam treści…");
+      await loadContent();
+      await loadVersions();
+    } catch (e: any) {
+      setFlash("Błąd: " + (e?.message || ""));
+    } finally {
+      setRestoringId(null);
     }
   };
 
@@ -306,6 +363,87 @@ export default function AdminClient() {
                 ));
               })()
             )}
+
+            {/* Historia wersji */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:p-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVersions((v) => !v);
+                  if (!showVersions && contentVersions.length === 0) loadVersions();
+                }}
+                className="w-full flex items-center justify-between gap-3 text-left"
+              >
+                <h3 className="text-sm font-black uppercase tracking-wider text-rose-400">
+                  Historia wersji {contentVersions.length > 0 ? `(${contentVersions.length})` : ""}
+                </h3>
+                <span className="text-slate-400 text-xs font-bold">{showVersions ? "Ukryj" : "Pokaż"}</span>
+              </button>
+
+              {showVersions && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={loadVersions}
+                      disabled={versionsLoading}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold disabled:opacity-60"
+                    >
+                      {versionsLoading ? "Ładowanie…" : "Odśwież listę"}
+                    </button>
+                  </div>
+
+                  {contentVersions.length === 0 && !versionsLoading && (
+                    <div className="text-slate-500 text-xs py-4 text-center">
+                      Brak zapisanych wersji. Wersja powstaje przy każdym zapisie treści.
+                    </div>
+                  )}
+
+                  {contentVersions.map((v) => (
+                    <div
+                      key={v.id}
+                      className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm text-white font-semibold">
+                            #{v.id} <span className="text-slate-400 font-normal">· {fmtDate(v.created_at)}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {v.label || "Zapis treści"}
+                            {typeof v.changed_count === "number" && v.changed_count > 0 && (
+                              <span className="text-amber-400 font-semibold"> · {v.changed_count} {v.changed_count === 1 ? "zmiana" : v.changed_count < 5 ? "zmiany" : "zmian"}</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => restoreFromVersion(v.id)}
+                          disabled={restoringId === v.id}
+                          className="shrink-0 px-3 py-1.5 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-bold disabled:opacity-60"
+                        >
+                          {restoringId === v.id ? "Przywracanie…" : "Przywróć"}
+                        </button>
+                      </div>
+                      {v.changes && Object.keys(v.changes).length > 0 && (
+                        <div className="mt-2 border-t border-slate-800/80 pt-2">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Zmienione pola:</div>
+                          <ul className="space-y-0.5">
+                            {Object.entries(v.changes).map(([key, label]) => (
+                              <li key={key} className="text-[11px] text-slate-300 flex items-start gap-1.5">
+                                <span className="text-rose-400 mt-0.5">•</span>
+                                <span className="min-w-0">
+                                  <span className="font-semibold">{label}</span>
+                                  <span className="text-slate-600"> ({key})</span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-end gap-3">
               <button
