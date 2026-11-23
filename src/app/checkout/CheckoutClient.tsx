@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { IMMEDIATE_ACCESS_CONSENT_TEXT } from "../lib/consents";
@@ -124,9 +124,13 @@ const CloudIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   </svg>
 );
 
-// Jeden produkt, jedna licencja – cena katalogowa (przekreślona) i aktualna.
-const ONLINE_ORIGINAL = 20000; // 200,00 zł
-const ONLINE_PRICE = 14900; // 149,00 zł
+// Ceny wczytujemy z /api/pricing (panel admina). Poniżej wartości startowe.
+const DEFAULT_PRICING = {
+  coursePrice: 14900,
+  courseOriginal: 20000,
+  coursePromoActive: true,
+  coursePromoLabel: "",
+};
 
 const formatPLN = (v: number) =>
   (v / 100).toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
@@ -135,6 +139,26 @@ export default function CheckoutClient({ userEmail }: Props) {
   const [coupon, setCoupon] = useState("");
   const [processing, setProcessing] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
+  const [pricing, setPricing] = useState(DEFAULT_PRICING);
+
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && Number.isFinite(d.coursePrice)) {
+          setPricing({
+            coursePrice: d.coursePrice,
+            courseOriginal: Number.isFinite(d.courseOriginal) ? d.courseOriginal : d.coursePrice,
+            coursePromoActive: !!d.coursePromoActive,
+            coursePromoLabel: d.coursePromoLabel || "",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const ONLINE_PRICE = pricing.coursePrice;
+  const ONLINE_ORIGINAL = pricing.coursePromoActive ? pricing.courseOriginal : pricing.coursePrice;
 
   // Zgody wymagane przed płatnością (druga MUSI być niezaznaczona domyślnie)
   const [acceptedTerms, setAcceptedTerms] = useState(false);

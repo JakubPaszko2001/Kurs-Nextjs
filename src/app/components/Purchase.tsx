@@ -4,6 +4,13 @@ import React from "react";
 import Link from "next/link";
 import { DEFAULT_CONTENT } from '../lib/siteContent';
 
+type PricingProps = {
+  coursePrice: number;
+  courseOriginal: number;
+  coursePromoActive: boolean;
+  coursePromoLabel: string;
+};
+
 /* Ikony SVG (lokalne komponenty) */
 const CheckIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -31,16 +38,19 @@ const ZapIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
-// Cena w groszach (149,00 zl).
-const PRICE_GROSZE = 14900;
-const priceZlote = (PRICE_GROSZE / 100).toLocaleString("pl-PL", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
+const formatZl = (grosze: number) =>
+  (grosze / 100).toLocaleString("pl-PL", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 
-const Purchase: React.FC<{ content?: Record<string, string> }> = ({ content = {} }) => {
+const Purchase: React.FC<{ content?: Record<string, string>; pricing?: PricingProps }> = ({ content = {}, pricing }) => {
   const c = (key: string) => content[key] ?? DEFAULT_CONTENT[key] ?? "";
   const features = [1, 2, 3, 4, 5, 6].map((n) => c(`purchase_feature_${n}`));
+  const priceZlote = formatZl(pricing?.coursePrice ?? 14900);
+  const originalZlote = pricing?.coursePromoActive ? formatZl(pricing.courseOriginal) : "";
+  const promoActive = !!pricing?.coursePromoActive && (pricing.courseOriginal > pricing.coursePrice);
+  const promoLabel = pricing?.coursePromoLabel || "";
 
   return (
     <section id="kup-teraz" className="relative overflow-hidden bg-slate-950 py-20 md:py-32 text-slate-100 font-sans border-t border-slate-800/80">
@@ -92,10 +102,16 @@ const Purchase: React.FC<{ content?: Record<string, string> }> = ({ content = {}
 
               {/* Sekcja ceny */}
               <div className="mt-6 pt-6 border-t border-slate-800/80 text-center">
-                <div className="flex items-baseline justify-center gap-1.5">
+                <div className="flex items-baseline justify-center gap-2">
                   <span className="text-5xl font-black tracking-tight text-white">{priceZlote}</span>
                   <span className="text-2xl font-extrabold text-rose-400">zł</span>
+                  {promoActive && (
+                    <span className="text-lg line-through text-slate-500">{originalZlote} zł</span>
+                  )}
                 </div>
+                {promoActive && promoLabel && (
+                  <p className="mt-1 text-xs font-bold text-rose-400">{promoLabel}</p>
+                )}
                 <p className="mt-1 text-xs text-slate-400 font-medium">
                   {c('purchase_price_note')}
                 </p>

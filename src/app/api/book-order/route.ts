@@ -4,13 +4,12 @@
 // a serwer liczy je z tych samych zmiennych środowiskowych (spójność).
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { getPricing } from "../../lib/pricing";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const BOOK_PRICE = Number(process.env.BOOK_PRICE_PLN ?? "9900"); // 99,00 zł
-const COURIER_STD = Number(process.env.SHIP_COURIER_STANDARD_PLN ?? "490");
-const COURIER_EXP = Number(process.env.SHIP_COURIER_EXPRESS_PLN ?? "1990");
+// Ceny pobierane z panelu admina (funkcja getPricing()).
 
 const isEmail = (v: unknown) =>
   typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -33,6 +32,7 @@ export async function POST(req: NextRequest) {
     }
     const stripe = new Stripe(secret);
     const url = baseUrl(req);
+    const pricing = await getPricing();
 
     const body = (await req.json().catch(() => ({}))) as Record<string, any>;
     const email = String(body.email || "").trim();
@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Uzupełnij pełny adres." }, { status: 400 });
     }
 
-    const shipCost = shipping === "express" ? COURIER_EXP : COURIER_STD;
+
+    const shipCost = shipping === "express" ? pricing.shippingExpress : pricing.shippingStandard;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
         {
           price_data: {
             currency: "pln",
-            unit_amount: BOOK_PRICE,
+            unit_amount: pricing.bookPrice,
             product_data: { name: "Poradnik – wersja drukowana" },
           },
           quantity: 1,
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
         address_line1_prefill: addressLine1,
         postal_code_prefill: postalCode,
         city_prefill: city,
-        catalog_price: String(BOOK_PRICE),
+        catalog_price: String(pricing.bookPrice),
         shipping_cost_shown: String(shipCost),
       },
       shipping_options: [
@@ -112,10 +113,11 @@ export async function POST(req: NextRequest) {
 
 // Podgląd cen dla klienta (aby strona pokazała je PRZED zapłatą)
 export async function GET() {
+  const pricing = await getPricing();
   return NextResponse.json({
-    price: BOOK_PRICE,
-    shippingStandard: COURIER_STD,
-    shippingExpress: COURIER_EXP,
+    price: pricing.bookPrice,
+    shippingStandard: pricing.shippingStandard,
+    shippingExpress: pricing.shippingExpress,
     currency: "pln",
   });
 }

@@ -18,6 +18,7 @@ import {
   IMMEDIATE_ACCESS_VERSION,
   IMMEDIATE_ACCESS_CONSENT_TEXT,
 } from "../../lib/consents";
+import { getPricing } from "../../lib/pricing";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -98,13 +99,24 @@ export async function POST(req: NextRequest) {
 
     const acceptedAt = new Date().toISOString();
 
-    const ORIGINAL = Number(process.env.STRIPE_COURSE_ORIGINAL_PLN ?? "20000");
-    const PRICE = Number(process.env.STRIPE_COURSE_PRICE_PLN ?? "14900");
+
+
+    // Ceny z panelu admina (DB = źródło prawdy).
+    // getPricing() zwraca wartości z DB, a gdy DB pusta – DEFAULT_PRICING.
+    const pricing = await getPricing();
+    const promo = pricing.coursePromoActive;
+
+    // Cena katalogowa (przekreślona) i cena sprzedaży.
+    const ORIGINAL = pricing.courseOriginal;
+    const PRICE = promo ? pricing.coursePrice : (pricing.coursePrice > 0 ? pricing.coursePrice : pricing.courseOriginal);
+
+    // Stripe zawsze pobiera kwotę z panelu. Env jest IGNOROWANE dla kwoty,
+    // żeby zmiana w panelu faktycznie działała (env zostaje tylko jako nazwa produktu).
+    const unitAmount = PRICE;
+
     const productName =
       process.env.STRIPE_COURSE_NAME ||
       "Plan odzyskania bliskości – pełen dostęp online";
-
-    const unitAmount = Number(process.env.STRIPE_COURSE_AMOUNT_PLN ?? PRICE);
 
     // Zawsze jedna licencja (prywatny dostęp). Ilość z żądania jest ignorowana.
     const session = await stripe.checkout.sessions.create({

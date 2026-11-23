@@ -11,6 +11,7 @@ import FinalCTA from "./components/FinalCTA";
 import Footer from "./components/Footer";
 import StructuredData from "./components/StructuredData";
 import { getSiteContent } from "./lib/siteContent";
+import { getPricing } from "./lib/pricing";
 
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -45,6 +46,7 @@ async function getAuth(): Promise<AuthInfo> {
 export default async function Page() {
   const { loggedIn, email } = await getAuth();
   const content = await getSiteContent();
+  const pricing = await getPricing();
 
   return (
     <div className="bg-[#0f1222] text-white antialiased">
@@ -57,7 +59,7 @@ export default async function Page() {
         <WhatYouGet content={content} />
         <WhyItWorks content={content} />
         <ProblemBlock content={content} />
-        <Purchase content={content} />
+        <Purchase content={content} pricing={pricing} />
         <FAQ content={content} />
         <FinalCTA content={content} />
       </main>

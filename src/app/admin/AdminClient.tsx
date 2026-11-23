@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "book" | "users" | "content";
+type Tab = "book" | "users" | "content" | "pricing";
 
 type ContentField = {
   key: string;
@@ -48,6 +48,28 @@ export default function AdminClient() {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [showVersions, setShowVersions] = useState(false);
+
+  // --- Ceny ---
+  type PricingForm = {
+    coursePrice: number;
+    courseOriginal: number;
+    coursePromoLabel: string;
+    coursePromoActive: boolean;
+    bookPrice: number;
+    shippingStandard: number;
+    shippingExpress: number;
+  };
+  const [pricing, setPricing] = useState<PricingForm>({
+    coursePrice: 14900,
+    courseOriginal: 20000,
+    coursePromoLabel: "",
+    coursePromoActive: true,
+    bookPrice: 9900,
+    shippingStandard: 490,
+    shippingExpress: 1990,
+  });
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingSaving, setPricingSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,13 +126,6 @@ export default function AdminClient() {
     }
   }, [router]);
 
-  // Ładuj treści po przejściu na zakładkę
-  useEffect(() => {
-    if (tab === "content" && contentFields.length === 0) {
-      loadContent();
-      loadVersions();
-    }
-  }, [tab, contentFields.length, loadContent]);
 
   const saveContent = async () => {
     setContentSaving(true);
@@ -173,6 +188,58 @@ export default function AdminClient() {
       setRestoringId(null);
     }
   };
+
+  const loadPricing = useCallback(async () => {
+    setPricingLoading(true);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/pricing", { cache: "no-store" });
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "Błąd pobierania cen.");
+      if (d?.pricing) setPricing(d.pricing);
+    } catch (e: any) {
+      setFlash("Błąd cen: " + (e?.message || ""));
+    } finally {
+      setPricingLoading(false);
+    }
+  }, [router]);
+
+  const savePricing = async () => {
+    setPricingSaving(true);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pricing),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d?.error ?? "Nie udało się zapisać cen.");
+      setFlash("Zapisano ceny. Odśwież stronę główną / checkout, aby zobaczyć zmiany.");
+    } catch (e: any) {
+      setFlash("Błąd: " + (e?.message || ""));
+    } finally {
+      setPricingSaving(false);
+    }
+  };
+
+  const setPricingField = <K extends keyof PricingForm>(key: K, value: PricingForm[K]) =>
+    setPricing((prev) => ({ ...prev, [key]: value }));
+
+  // Ładuj treści i ceny po przejściu na zakładkę
+  useEffect(() => {
+    if (tab === "content" && contentFields.length === 0) {
+      loadContent();
+      loadVersions();
+    }
+    if (tab === "pricing") {
+      loadPricing();
+    }
+  }, [tab, contentFields.length, loadContent, loadVersions, loadPricing]);
 
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -308,6 +375,14 @@ export default function AdminClient() {
             }`}
           >
             Treści strony
+          </button>
+          <button
+            onClick={() => setTab("pricing")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold ${
+              tab === "pricing" ? "bg-rose-500 text-white" : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            Ceny
           </button>
         </div>
 
@@ -461,6 +536,140 @@ export default function AdminClient() {
                 {contentSaving ? "Zapisywanie…" : "Zapisz treści"}
               </button>
             </div>
+          </div>
+        ) : tab === "pricing" ? (
+          <div className="space-y-6">
+            {pricingLoading ? (
+              <div className="text-slate-400 text-sm py-10 text-center">Ładowanie cen…</div>
+            ) : (
+              <>
+                {/* KURS */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:p-6">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-rose-400 mb-4">
+                    Kurs (dostęp online)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Cena katalogowa (zł)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={pricing.courseOriginal / 100}
+                        onChange={(e) => setPricingField("courseOriginal", Math.round(Number(e.target.value) * 100))}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                      />
+                      <div className="mt-1 text-[10px] text-slate-600">Cena przekreślona (przed promocją).</div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Cena sprzedaży (zł)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={pricing.coursePrice / 100}
+                        onChange={(e) => setPricingField("coursePrice", Math.round(Number(e.target.value) * 100))}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                      />
+                      <div className="mt-1 text-[10px] text-slate-600">Aktualna cena, jaką płaci klient.</div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Etykieta promocji (opcjonalnie)
+                      </label>
+                      <input
+                        value={pricing.coursePromoLabel}
+                        onChange={(e) => setPricingField("coursePromoLabel", e.target.value)}
+                        placeholder='np. "Promocja -25%" lub "Tylko do końca tygodnia"'
+                        className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pricing.coursePromoActive}
+                          onChange={(e) => setPricingField("coursePromoActive", e.target.checked)}
+                          className="h-4 w-4 accent-rose-500"
+                        />
+                        <span className="text-sm text-slate-300">
+                          Pokaż promocję (przekreślona cena katalogowa + etykieta i rabat)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* KSIĄŻKA */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:p-6">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-rose-400 mb-4">
+                    Książka (wersja drukowana)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Cena książki (zł)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={pricing.bookPrice / 100}
+                        onChange={(e) => setPricingField("bookPrice", Math.round(Number(e.target.value) * 100))}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Dostawa standard (zł)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={pricing.shippingStandard / 100}
+                        onChange={(e) => setPricingField("shippingStandard", Math.round(Number(e.target.value) * 100))}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Dostawa ekspres (zł)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={pricing.shippingExpress / 100}
+                        onChange={(e) => setPricingField("shippingExpress", Math.round(Number(e.target.value) * 100))}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={loadPricing}
+                    disabled={pricingLoading || pricingSaving}
+                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold"
+                  >
+                    Odrzuć zmiany
+                  </button>
+                  <button
+                    onClick={savePricing}
+                    disabled={pricingSaving}
+                    className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold disabled:opacity-60"
+                  >
+                    {pricingSaving ? "Zapisywanie…" : "Zapisz ceny"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ) : tab === "book" ? (
           <div className="overflow-x-auto rounded-2xl border border-slate-800">
