@@ -159,16 +159,51 @@ export async function POST(req: NextRequest) {
           "";
 
                 if (userEmail) {
-          const { error } = await supabaseAdmin
-            .from("users")
-            .update({ status: "paid" })
-            .eq("email", userEmail);
+                  // Kwota faktycznie zapłacona: najpierw z pełnej sesji Stripe,
+                  // fallback na metadata (amount_total zapisane przy tworzeniu sesji).
+                  let paidAmount: number | null = null;
+                  try {
+                    const fullCourse = await stripe.checkout.sessions.retrieve(session.id, {
+                      expand: ["line_items"],
+                    });
+                    paidAmount =
+                      typeof fullCourse.amount_total === "number"
+                        ? fullCourse.amount_total
+                        : null;
+                  } catch (e) {
+                    console.warn("[webhook] course session retrieve failed:", e);
+                  }
+                  if ( paidAmount === null ) {
+                    const fromMeta = Number(session.metadata?.amount_total);
+                    if (Number.isFinite(fromMeta) && fromMeta > 0) paidAmount = fromMeta;
+                  }
 
-          if (error) console.error("[webhook] users update error:", error);
-          else console.log("[webhook] status=paid set for", userEmail);
-        } else {
-          console.warn("[webhook] no email on session (course)");
-        }
+                  const updateFields: Record<string, unknown> = { status: "paid" };
+                  if (paidAmount !== null) updateFields.price = paidAmount;
+
+                  // Cena katalogowa (przekreślona) i cena listy (przed kuponem)
+                  // z metadata zapisanych przy tworzeniu sesji.
+                  const metaOriginal = Number(session.metadata?.catalog_original);
+                  const metaList = Number(session.metadata?.price_before_coupon);
+                  if (Number.isFinite(metaOriginal) && metaOriginal > 0) {
+                    updateFields.price_original = metaOriginal;
+                  }
+                  if (Number.isFinite(metaList) && metaList > 0) {
+                    updateFields.price_list = metaList;
+                  }
+                  const usedCoupon = (session.metadata?.coupon_code as string) || "";
+                  if (usedCoupon) updateFields.coupon_code = usedCoupon;
+
+                  const { error } = await supabaseAdmin
+                    .from("users")
+                    .update(updateFields)
+                    .eq("email", userEmail);
+
+                  if (error) console.error("[webhook] users update error:", error);
+                  else console.log("[webhook] status=paid price=", paidAmount, "for", userEmail);
+                } else {
+                  console.warn("[webhook] no email on session (course)");
+                }
 
         // Zgody: jeśli z jakiegoś powodu nie zapisano ich przy tworzeniu sesji,
         // dopisujemy wiersz na podstawie metadata (data = moment akceptacji).

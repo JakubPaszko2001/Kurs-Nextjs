@@ -19,6 +19,7 @@ import {
   IMMEDIATE_ACCESS_CONSENT_TEXT,
 } from "../../lib/consents";
 import { getPricing } from "../../lib/pricing";
+import { applyCoupon, incrementCouponUse } from "../../lib/coupons";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -112,7 +113,10 @@ export async function POST(req: NextRequest) {
 
     // Stripe zawsze pobiera kwotę z panelu. Env jest IGNOROWANE dla kwoty,
     // żeby zmiana w panelu faktycznie działała (env zostaje tylko jako nazwa produktu).
-    const unitAmount = PRICE;
+    // Kupon rabatowy stosujemy po stronie serwera (to samo źródło co UI),
+    // żeby kwota "Do zapłaty" = kwota pobierana przez Stripe.
+    const couponResult = await applyCoupon(PRICE, body.coupon);
+    const unitAmount = couponResult.finalPrice;
 
     const productName =
       process.env.STRIPE_COURSE_NAME ||
@@ -135,7 +139,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       customer_email: email,
-      allow_promotion_codes: true,
+      allow_promotion_codes: false,
       // Metadata mają limit długości — zapisujemy tu skróty + wersje,
       // a pełną treść zapisujemy w tabeli order_consents (poniżej).
       metadata: {
@@ -145,6 +149,10 @@ export async function POST(req: NextRequest) {
         qty: "1",
         licenses: "1",
         catalog_original: String(ORIGINAL),
+        price_before_coupon: String(PRICE),
+        coupon_code: couponResult.coupon ? couponResult.coupon.code : "",
+        coupon_discount: String(couponResult.discount),
+        amount_total: String(unitAmount),
         consent_terms: "1",
         consent_terms_version: TERMS_VERSION,
         consent_immediate: "1",
@@ -174,6 +182,11 @@ export async function POST(req: NextRequest) {
       if (consentErr) {
         console.error("[checkout] order_consents insert error:", consentErr);
       }
+    }
+
+    // Zlicz użycie kuponu (best-effort).
+    if (couponResult.coupon) {
+      await incrementCouponUse(couponResult.coupon.code);
     }
 
     return NextResponse.json({ url: session.url }, { status: 200 });

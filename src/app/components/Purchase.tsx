@@ -47,7 +47,7 @@ const formatZl = (grosze: number) =>
 const Purchase: React.FC<{ content?: Record<string, string>; pricing?: PricingProps }> = ({ content = {}, pricing }) => {
   const c = (key: string) => content[key] ?? DEFAULT_CONTENT[key] ?? "";
   const features = [1, 2, 3, 4, 5, 6].map((n) => c(`purchase_feature_${n}`));
-  const priceZlote = formatZl(pricing?.coursePrice ?? 14900);
+  const priceZlote = formatZl(pricing?.coursePrice ?? 0);
   const originalZlote = pricing?.coursePromoActive ? formatZl(pricing.courseOriginal) : "";
   const promoActive = !!pricing?.coursePromoActive && (pricing.courseOriginal > pricing.coursePrice);
   const promoLabel = pricing?.coursePromoLabel || "";

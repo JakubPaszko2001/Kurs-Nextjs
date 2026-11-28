@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import CheckoutClient from "./CheckoutClient";
+import { getPricing } from "../lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -20,5 +21,6 @@ async function getUserEmail(): Promise<string> {
 
 export default async function Page() {
   const userEmail = await getUserEmail(); // "" gdy niezalogowany
-  return <CheckoutClient userEmail={userEmail} />;
+  const pricing = await getPricing(); // cena ZAWSZE z bazy (panel admina)
+  return <CheckoutClient userEmail={userEmail} pricing={pricing} />;
 }

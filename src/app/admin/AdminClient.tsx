@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "book" | "users" | "content" | "pricing";
+type Tab = "book" | "users" | "content" | "pricing" | "coupons";
 
 type ContentField = {
   key: string;
@@ -14,7 +14,7 @@ type ContentField = {
 };
 
 type BookOrder = Record<string, any>;
-type User = { id: any; email: string; status: string; created_at?: string };
+type User = { id: any; email: string; status: string; price?: number | null; price_original?: number | null; price_list?: number | null; coupon_code?: string | null; created_at?: string };
 type ContentVersion = {
   id: number;
   created_at: string;
@@ -70,6 +70,38 @@ export default function AdminClient() {
   });
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingSaving, setPricingSaving] = useState(false);
+
+  // --- Kupony ---
+  type AdminCoupon = {
+    code: string;
+    percent: number;
+    active: boolean;
+    max_uses: number | null;
+    uses: number;
+    expires_at: string | null;
+    note: string | null;
+  };
+  type CouponDraft = {
+    code: string;
+    percent: number;
+    active: boolean;
+    max_uses: string;
+    expires_at: string; // yyyy-MM-dd lub ""
+    note: string;
+  };
+  const emptyCoupon = (): CouponDraft => ({
+    code: "",
+    percent: 10,
+    active: true,
+    max_uses: "",
+    expires_at: "",
+    note: "",
+  });
+  const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponSaving, setCouponSaving] = useState(false);
+  const [couponDraft, setCouponDraft] = useState<CouponDraft>(emptyCoupon());
+  const [couponEditing, setCouponEditing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -231,6 +263,92 @@ export default function AdminClient() {
     setPricing((prev) => ({ ...prev, [key]: value }));
 
   // Ładuj treści i ceny po przejściu na zakładkę
+
+
+  // --- Kupony: CRUD ---
+  const loadCoupons = useCallback(async () => {
+    setCouponsLoading(true);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/coupons", { cache: "no-store" });
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "Błąd pobierania kuponów.");
+      setCoupons(d.coupons || []);
+    } catch (e: any) {
+      setFlash("Błąd kuponów: " + (e?.message || ""));
+    } finally {
+      setCouponsLoading(false);
+    }
+  }, [router]);
+
+  const resetCouponDraft = () => {
+    setCouponDraft(emptyCoupon());
+    setCouponEditing(null);
+  };
+
+  const editCoupon = (c: AdminCoupon) => {
+    setCouponEditing(c.code);
+    setCouponDraft({
+      code: c.code,
+      percent: c.percent,
+      active: c.active,
+      max_uses: c.max_uses == null ? "" : String(c.max_uses),
+      expires_at: c.expires_at ? c.expires_at.slice(0, 10) : "",
+      note: c.note || "",
+    });
+  };
+
+  const saveCoupon = async () => {
+    setCouponSaving(true);
+    setFlash(null);
+    try {
+      const isEdit = couponEditing !== null;
+      const payload = {
+        code: couponDraft.code.trim().toUpperCase(),
+        percent: Number(couponDraft.percent),
+        active: couponDraft.active,
+        max_uses: couponDraft.max_uses.trim() === "" ? null : Number(couponDraft.max_uses),
+        expires_at: couponDraft.expires_at ? new Date(couponDraft.expires_at + "T23:59:59").toISOString() : null,
+        note: couponDraft.note.trim() || null,
+      };
+      const res = await fetch("/api/admin/coupons", {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d?.error ?? "Nie udało się zapisać kuponu.");
+      setFlash(isEdit ? "Zaktualizowano kupon." : "Dodano kupon.");
+      resetCouponDraft();
+      await loadCoupons();
+    } catch (e: any) {
+      setFlash("Błąd: " + (e?.message || ""));
+    } finally {
+      setCouponSaving(false);
+    }
+  };
+
+  const removeCoupon = async (code: string) => {
+    if (!confirm(`Usunąć kupon ${code}?`)) return;
+    setFlash(null);
+    try {
+      const res = await fetch(`/api/admin/coupons?code=${encodeURIComponent(code)}`, {
+        method: "DELETE",
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d?.error ?? "Nie udało się usunąć kuponu.");
+      setFlash("Usunięto kupon.");
+      if (couponEditing === code) resetCouponDraft();
+      await loadCoupons();
+    } catch (e: any) {
+      setFlash("Błąd: " + (e?.message || ""));
+    }
+  };
+
   useEffect(() => {
     if (tab === "content" && contentFields.length === 0) {
       loadContent();
@@ -239,7 +357,10 @@ export default function AdminClient() {
     if (tab === "pricing") {
       loadPricing();
     }
-  }, [tab, contentFields.length, loadContent, loadVersions, loadPricing]);
+    if (tab === "coupons") {
+      loadCoupons();
+    }
+  }, [tab, contentFields.length, loadContent, loadVersions, loadPricing, loadCoupons]);
 
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -383,6 +504,14 @@ export default function AdminClient() {
             }`}
           >
             Ceny
+          </button>
+          <button
+            onClick={() => setTab("coupons")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold ${
+              tab === "coupons" ? "bg-rose-500 text-white" : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            Kupony
           </button>
         </div>
 
@@ -535,6 +664,162 @@ export default function AdminClient() {
               >
                 {contentSaving ? "Zapisywanie…" : "Zapisz treści"}
               </button>
+            </div>
+          </div>
+        ) : tab === "coupons" ? (
+          <div className="space-y-6">
+            {/* Formularz dodawania / edycji */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:p-6">
+              <h3 className="text-sm font-black uppercase tracking-wider text-rose-400 mb-4">
+                {couponEditing ? `Edytuj kupon: ${couponEditing}` : "Nowy kupon"}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Kod</label>
+                  <input
+                    value={couponDraft.code}
+                    disabled={couponEditing !== null}
+                    onChange={(e) => setCouponDraft({ ...couponDraft, code: e.target.value.toUpperCase() })}
+                    placeholder="np. WIOSNA25"
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60 disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Rabat (%)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={couponDraft.percent}
+                    onChange={(e) => setCouponDraft({ ...couponDraft, percent: Number(e.target.value) })}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Limit użyć (opcjonalnie)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={couponDraft.max_uses}
+                    onChange={(e) => setCouponDraft({ ...couponDraft, max_uses: e.target.value })}
+                    placeholder="bez limitu"
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Ważny do (opcjonalnie)</label>
+                  <input
+                    type="date"
+                    value={couponDraft.expires_at}
+                    onChange={(e) => setCouponDraft({ ...couponDraft, expires_at: e.target.value })}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                  />
+                </div>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Notatka (opcjonalnie)</label>
+                  <input
+                    value={couponDraft.note}
+                    onChange={(e) => setCouponDraft({ ...couponDraft, note: e.target.value })}
+                    placeholder="np. kampania e-mail luty"
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 text-white px-3 py-2 text-sm focus:outline-none focus:border-rose-500/60"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={couponDraft.active}
+                      onChange={(e) => setCouponDraft({ ...couponDraft, active: e.target.checked })}
+                      className="h-4 w-4 accent-rose-500"
+                    />
+                    Aktywny
+                  </label>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end gap-3">
+                {couponEditing && (
+                  <button onClick={resetCouponDraft} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold">
+                    Anuluj edycję
+                  </button>
+                )}
+                <button
+                  onClick={saveCoupon}
+                  disabled={couponSaving}
+                  className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold disabled:opacity-60"
+                >
+                  {couponSaving ? "Zapisywanie…" : couponEditing ? "Zapisz zmiany" : "Dodaj kupon"}
+                </button>
+              </div>
+            </div>
+
+            {/* Lista kuponów */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+              <div className="flex items-center justify-between p-4">
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-300">
+                  Kupony ({coupons.length})
+                </h3>
+                <button onClick={loadCoupons} disabled={couponsLoading} className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold disabled:opacity-60">
+                  {couponsLoading ? "Ładowanie…" : "Odśwież"}
+                </button>
+              </div>
+              {coupons.length === 0 && !couponsLoading ? (
+                <div className="text-slate-500 text-xs py-8 text-center">Brak kuponów. Dodaj pierwszy kupon powyżej.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-950/60 text-slate-400 text-left">
+                      <tr>
+                        <th className="px-4 py-2 font-bold">Kod</th>
+                        <th className="px-4 py-2 font-bold">Rabat</th>
+                        <th className="px-4 py-2 font-bold">Użycia</th>
+                        <th className="px-4 py-2 font-bold">Ważny do</th>
+                        <th className="px-4 py-2 font-bold">Status</th>
+                        <th className="px-4 py-2 font-bold text-right">Akcje</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coupons.map((c) => {
+                        const expired = c.expires_at && new Date(c.expires_at).getTime() < Date.now();
+                        const limited = c.max_uses != null && c.uses >= c.max_uses;
+                        return (
+                          <tr key={c.code} className="border-t border-slate-800/80">
+                            <td className="px-4 py-2 font-bold text-white whitespace-nowrap">
+                              {c.code}
+                              {c.note && <div className="text-[10px] text-slate-500 font-normal">{c.note}</div>}
+                            </td>
+                            <td className="px-4 py-2 text-rose-300 font-bold">{c.percent}%</td>
+                            <td className="px-4 py-2 text-slate-300 whitespace-nowrap">
+                              {c.uses}{c.max_uses != null ? ` / ${c.max_uses}` : ""}
+                            </td>
+                            <td className="px-4 py-2 text-slate-400 whitespace-nowrap">
+                              {c.expires_at ? c.expires_at.slice(0, 10) : "—"}
+                            </td>
+                            <td className="px-4 py-2">
+                              {!c.active ? (
+                                <span className="text-slate-500">Wyłączony</span>
+                              ) : expired ? (
+                                <span className="text-amber-400">Wygasł</span>
+                              ) : limited ? (
+                                <span className="text-amber-400">Limit użyć</span>
+                              ) : (
+                                <span className="text-emerald-400 font-semibold">Aktywny</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-right whitespace-nowrap">
+                              <button onClick={() => editCoupon(c)} className="text-xs px-3 py-1 rounded-lg bg-slate-800 text-slate-200 font-bold mr-2">
+                                Edytuj
+                              </button>
+                              <button onClick={() => removeCoupon(c.code)} className="text-xs px-3 py-1 rounded-lg bg-rose-500/20 text-rose-300 font-bold">
+                                Usuń
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         ) : tab === "pricing" ? (
@@ -735,6 +1020,7 @@ export default function AdminClient() {
                   <th className="px-3 py-2">#</th>
                   <th className="px-3 py-2">Data</th>
                   <th className="px-3 py-2">E-mail</th>
+                  <th className="px-3 py-2">Zapłacono</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2"></th>
                 </tr>
@@ -742,7 +1028,7 @@ export default function AdminClient() {
               <tbody>
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-slate-500">
+                    <td colSpan={6} className="px-3 py-8 text-center text-slate-500">
                       Brak kont.
                     </td>
                   </tr>
@@ -752,6 +1038,28 @@ export default function AdminClient() {
                     <td className="px-3 py-2 text-slate-500">{u.id}</td>
                     <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{fmtDate(u.created_at)}</td>
                     <td className="px-3 py-2">{u.email}</td>
+                    <td className="px-3 py-2 text-slate-300 whitespace-nowrap">
+                      {u.price != null ? (
+                        <div className="flex flex-col leading-tight">
+                          <span className="font-bold text-white">{fmtMoney(u.price, "pln")}</span>
+                          {u.price_original != null && u.price_original > u.price && (
+                            <span className="text-[11px] text-slate-500 line-through">
+                              było {fmtMoney(u.price_original, "pln")}
+                            </span>
+                          )}
+                          {u.price_list != null && u.price_original != null && u.price_list < u.price_original && (
+                            <span className="text-[11px] text-emerald-400">
+                              promocja −{fmtMoney(u.price_original - u.price_list, "pln")}
+                            </span>
+                          )}
+                          {u.coupon_code && (
+                            <span className="text-[11px] text-rose-400">kupon: {u.coupon_code}</span>
+                          )}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       <span
                         className={`px-2 py-0.5 rounded-lg font-bold ${

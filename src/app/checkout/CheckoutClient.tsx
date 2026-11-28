@@ -124,38 +124,20 @@ const CloudIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   </svg>
 );
 
-// Ceny wczytujemy z /api/pricing (panel admina). Poniżej wartości startowe.
-const DEFAULT_PRICING = {
-  coursePrice: 14900,
-  courseOriginal: 20000,
-  coursePromoActive: true,
-  coursePromoLabel: "",
-};
+// Ceny przychodzą z serwera (props) – źródło: panel admina (baza).
 
 const formatPLN = (v: number) =>
   (v / 100).toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
 
-export default function CheckoutClient({ userEmail }: Props) {
+export default function CheckoutClient({ userEmail, pricing: initialPricing }: Props & { pricing: { coursePrice: number; courseOriginal: number; coursePromoActive: boolean; coursePromoLabel: string } }) {
   const [coupon, setCoupon] = useState("");
   const [processing, setProcessing] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
-  const [pricing, setPricing] = useState(DEFAULT_PRICING);
+  const pricing = initialPricing;
 
-  useEffect(() => {
-    fetch("/api/pricing")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d && Number.isFinite(d.coursePrice)) {
-          setPricing({
-            coursePrice: d.coursePrice,
-            courseOriginal: Number.isFinite(d.courseOriginal) ? d.courseOriginal : d.coursePrice,
-            coursePromoActive: !!d.coursePromoActive,
-            coursePromoLabel: d.coursePromoLabel || "",
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Walidacja kuponu po stronie serwera (jedno źródło prawdy z /api/checkout)
+  type CouponState = { valid: boolean; code?: string; percent?: number; discount: number; finalPrice: number };
+  const [couponState, setCouponState] = useState<CouponState>({ valid: false, discount: 0, finalPrice: 0 });
 
   const ONLINE_PRICE = pricing.coursePrice;
   const ONLINE_ORIGINAL = pricing.coursePromoActive ? pricing.courseOriginal : pricing.coursePrice;
@@ -176,14 +158,46 @@ export default function CheckoutClient({ userEmail }: Props) {
 
   const baseDiscountPerItem = ONLINE_ORIGINAL - ONLINE_PRICE;
 
-  const discount = useMemo(() => {
-    if (coupon.trim().toUpperCase() === "KODRABATOWY") {
-      return Math.round(ONLINE_PRICE * 0.1);
+  // Weryfikuj kupon przy każdej zmianie kodu lub ceny.
+  useEffect(() => {
+    const code = coupon.trim();
+    if (!code) {
+      setCouponState({ valid: false, discount: 0, finalPrice: ONLINE_PRICE });
+      return;
     }
-    return 0;
-  }, [coupon]);
+    let cancel = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, price: ONLINE_PRICE }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (cancel) return;
+        if (d?.valid) {
+          setCouponState({
+            valid: true,
+            code: d.code,
+            percent: d.percent,
+            discount: d.discount ?? 0,
+            finalPrice: d.finalPrice ?? ONLINE_PRICE,
+          });
+        } else {
+          setCouponState({ valid: false, discount: 0, finalPrice: ONLINE_PRICE });
+        }
+      } catch {
+        if (!cancel) setCouponState({ valid: false, discount: 0, finalPrice: ONLINE_PRICE });
+      }
+    }, 350);
+    return () => {
+      cancel = true;
+      clearTimeout(t);
+    };
+  }, [coupon, ONLINE_PRICE]);
 
-  const total = Math.max(0, ONLINE_PRICE - discount);
+  const discount = couponState.discount;
+  const total = couponState.valid ? couponState.finalPrice : ONLINE_PRICE;
   const baseDiscountPct = ((baseDiscountPerItem / ONLINE_ORIGINAL) * 100).toFixed(1);
 
   // Tworzenie sesji Stripe + przekierowanie
@@ -432,8 +446,14 @@ export default function CheckoutClient({ userEmail }: Props) {
                     <TagIcon className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                   {coupon.trim() && (
-                    <p className="mt-1.5 text-xs text-rose-400 font-medium">
-                      Wpisz <span className="font-bold text-white">KODRABATOWY</span>, aby otrzymać -10%
+                    <p className="mt-1.5 text-xs font-medium">
+                      {couponState.valid ? (
+                        <span className="text-emerald-400">
+                          Kupon aktywny: {couponState.code} (-{couponState.percent}%)
+                        </span>
+                      ) : (
+                        <span className="text-rose-400">Kupon nieprawidłowy lub wygasł.</span>
+                      )}
                     </p>
                   )}
                 </div>
@@ -530,7 +550,7 @@ export default function CheckoutClient({ userEmail }: Props) {
                       >
                         cozrobic@viholding.pl
                       </a>
-                      . Oddamy 149 zł i zamkniemy dostęp.
+                      . Zwrócimy pełną kwotę zapłaconą za dostęp online do poradnika i zamkniemy dostęp, zgodnie z zasadami gwarancji.
                     </p>
                     <a
                       href="/regulamin"

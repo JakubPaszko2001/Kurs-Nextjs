@@ -54,6 +54,27 @@ create index if not exists idx_site_content_versions_created
 alter table public.site_content_versions enable row level security;
 
 -- ============================================================
+--  KUPONY RABATOWE (edytowalne z panelu /admin -> "Kupony")
+-- ============================================================
+create table if not exists public.coupons (
+  code        text primary key,                    -- kod (wielkie litery)
+  percent     int  not null default 0,             -- rabat 0-100 (%)
+  active      boolean not null default true,       -- czy kupon działa
+  max_uses    int,                                 -- limit użyć (null = bez limitu)
+  uses        int  not null default 0,             -- ile razy użyty
+  expires_at  timestamptz,                         -- ważność (null = bezterminowo)
+  note        text,                                -- opis w panelu
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  constraint coupons_percent_range check (percent between 0 and 100)
+);
+
+create index if not exists idx_coupons_active on public.coupons (active);
+
+-- RLS: dostęp wyłącznie przez service role (API admina)
+alter table public.coupons enable row level security;
+
+-- ============================================================
 --  KONIEC
 -- ============================================================
 

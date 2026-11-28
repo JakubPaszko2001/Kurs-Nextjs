@@ -20,7 +20,7 @@ export async function GET() {
       .limit(500),
     supabaseAdmin
       .from("users")
-      .select("id, email, status, created_at")
+      .select("id, email, status, price, price_original, price_list, coupon_code, created_at")
       .order("created_at", { ascending: false })
       .limit(500),
   ]);

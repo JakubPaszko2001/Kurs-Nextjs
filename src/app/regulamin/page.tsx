@@ -207,7 +207,7 @@ export default function RegulaminPage() {
               („14 dni na sprawdzenie całego planu”).
             </p>
             <p className="mt-2">
-              2. Gwarancja obejmuje zakup dostępu online do Przewodnika w cenie 149 zł.
+              2. Gwarancja obejmuje zakup dostępu online do Przewodnika w cenie wskazanej w podsumowaniu zamówienia w chwili jego składania.
             </p>
             <p className="mt-2">
               3. Warunki skorzystania z gwarancji:
@@ -218,8 +218,7 @@ export default function RegulaminPage() {
               <li>zgłoszenie przesłane na adres e-mail: cozrobic@viholding.pl.</li>
             </ul>
             <p className="mt-2">
-              4. Po spełnieniu warunków Sprzedawca zwraca Klientowi kwotę 149 zł, a dostęp
-              do Przewodnika zostaje zamknięty.
+              4. Po spełnieniu warunków gwarancji Sprzedawca zwraca Klientowi pełną kwotę faktycznie zapłaconą za dostęp online do Przewodnika, a dostęp zostaje zamknięty.
             </p>
             <p className="mt-2">
               5. Gwarancja dotyczy wyłącznie dostępu online do Przewodnika. Zamówiona

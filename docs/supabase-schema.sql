@@ -14,8 +14,18 @@ create table if not exists public.users (
   password    text not null,                 -- UWAGA: w produkcji trzymaj HASH (bcrypt), nie plaintext!
   status      text not null default 'unpaid' -- 'unpaid' | 'paid'
                 check (status in ('unpaid', 'paid')),
+  price           integer,  -- kwota FAKTYCZNIE zapłacona za kurs (GROSZE), null = brak zakupu
+  price_original  integer,  -- cena katalogowa (przekreślona) w chwili zakupu (GROSZE)
+  price_list      integer,  -- cena listy/sprzedaży przed kuponem w chwili zakupu (GROSZE)
+  coupon_code     text,     -- użyty kod kuponu (jeśli był)
   created_at  timestamptz not null default now()
 );
+
+-- Migracje dla istniejących baz (idempotentnie):
+alter table public.users add column if not exists price integer;
+alter table public.users add column if not exists price_original integer;
+alter table public.users add column if not exists price_list integer;
+alter table public.users add column if not exists coupon_code text;
 
 -- Indeks na email (przyspiesza logowanie i update po emailu w webhooku)
 create index if not exists users_email_idx on public.users (email);
